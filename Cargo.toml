@@ -1,0 +1,22 @@
+[package]
+name = "drupal_ls"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.93"
+clap = { version = "4.5.20", features = ["derive", "env"] }
+crossbeam-channel = "0.5.13"
+ignore = "0.4.23"
+log = "0.4.22"
+lsp-server = "0.7.7"
+lsp-types = "0.97.0"
+rayon = "1.10.0"
+serde = { version = "1.0.214", features = ["derive"] }
+serde_json = "1.0.132"
+structured-logger = "1.0.3"
+tokio = { version = "1.41.1", features = ["full"] }
+tree-sitter = "0.24.4"
+tree-sitter-php = "0.23.10"
+tree-sitter-yaml = "0.6.1"
+url = "2.5.3"
