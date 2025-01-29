@@ -12,6 +12,7 @@ pub fn handle_request(request: Request) -> Response {
         "textDocument/hover" => handle_text_document_hover(request),
         "textDocument/definition" => handle_text_document_definition(request),
         "textDocument/completion" => handle_text_document_completion(request),
+        "shutdown" => None,
         _ => {
             log::warn!("Unhandled request {:?}", request);
             None

@@ -75,6 +75,6 @@ pub async fn start_lsp() -> Result<()> {
     io_threads.join()?;
 
     // Shut down gracefully.
-    log::warn!("Shutting down Drupal LSP server");
+    log::info!("Shutting down Drupal LSP server");
     Ok(())
 }
