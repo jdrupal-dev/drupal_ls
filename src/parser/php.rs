@@ -34,8 +34,19 @@ impl PhpParser {
 
     pub fn get_token_at_position(&self, position: Position) -> Option<Token> {
         let tree = self.get_tree()?;
-        let node = self.get_node_at_position(&tree, position)?;
-        self.parse_node(node, Some(self.position_to_point(position)))
+        let mut node = self.get_node_at_position(&tree, position)?;
+        let point = self.position_to_point(position);
+
+        // Return the first "parseable" token in the parent chain.
+        let mut parsed_node: Option<Token>;
+        loop {
+            parsed_node = self.parse_node(node, Some(point));
+            if parsed_node.is_some() {
+                break;
+            }
+            node = node.parent()?;
+        }
+        parsed_node
     }
 
     fn get_node_at_position<'a>(&self, tree: &'a Tree, position: Position) -> Option<Node<'a>> {
@@ -61,8 +72,11 @@ impl PhpParser {
                 match self.parse_node(node, None) {
                     Some(token) => tokens.push(token),
                     None => {
-                        let mut cursor = node.walk();
-                        new_nodes.append(&mut node.children(&mut cursor).collect::<Vec<Node>>());
+                        if node.child_count() > 0 {
+                            let mut cursor = node.walk();
+                            new_nodes
+                                .append(&mut node.children(&mut cursor).collect::<Vec<Node>>());
+                        }
                     }
                 };
             }
@@ -80,7 +94,7 @@ impl PhpParser {
             }
             "function_definition" => self.parse_function_definition(node),
             "comment" => self.parse_comment(node),
-            _ => self.parse_node(node.parent()?, point),
+            _ => None,
         }
     }
 

@@ -11,6 +11,7 @@ pub fn handle_notification(notification: Notification) -> () {
         "textDocument/didOpen" => handle_text_document_did_open(notification.params),
         "textDocument/didChange" => handle_text_document_did_change(notification.params),
         "textDocument/didClose" => (),
+        "textDocument/didSave" => (),
         _ => log::warn!("Unhandled notification {:?}", notification),
     };
 }

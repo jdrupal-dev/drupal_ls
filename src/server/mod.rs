@@ -22,10 +22,9 @@ async fn main_loop(connection: Connection) -> () {
         match msg {
             Message::Notification(notification) => handle_notification(notification),
             Message::Request(request) => {
-                if let Some(response) = handle_request(request) {
-                    if let Err(e) = connection.sender.send(Message::Response(response)) {
-                        log::error!("Failed to send response: {:?}", e);
-                    }
+                let response = handle_request(request);
+                if let Err(e) = connection.sender.send(Message::Response(response)) {
+                    log::error!("Failed to send response: {:?}", e);
                 }
             }
             _ => log::error!("Unable to process message: {:?}", msg),

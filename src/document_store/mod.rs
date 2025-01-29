@@ -30,8 +30,13 @@ pub fn initialize_document_store(root_dir: String) {
     override_builder.add("**/*.routing.yml").unwrap();
     override_builder.add("**/src/**/*.php").unwrap();
     override_builder.add("**/core/lib/**/*.php").unwrap();
+    // For now we don't care about interfaces at all.
+    override_builder.add("!**/src/**/*Interface.php").unwrap();
+    override_builder.add("!**/core/lib/**/*Interface.php").unwrap();
+    override_builder.add("!**/Plugin/**/*.php").unwrap();
     override_builder.add("!vendor").unwrap();
     override_builder.add("!node_modules").unwrap();
+    override_builder.add("!libraries").unwrap();
     builder.overrides(override_builder.build().unwrap());
 
     // Find all of the documents that we are interested in parsing by walking the file tree using a

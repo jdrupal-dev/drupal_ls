@@ -29,10 +29,17 @@ pub fn handle_text_document_definition(request: Request) -> Option<Response> {
     }
 
     let Some(token) = token else {
+        return Some(Response {
+            id: request.id,
+            result: Some(serde_json::Value::Null),
+            error: None,
+        });
+    };
+
+    let Some(definition_result) = provide_definition_for_token(&token) else {
         return None;
     };
 
-    let definition_result = provide_definition_for_token(&token);
     return match serde_json::to_value(definition_result) {
         Ok(result) => Some(Response {
             id: request.id,

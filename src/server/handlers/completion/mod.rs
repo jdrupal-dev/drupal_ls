@@ -2,9 +2,9 @@ use std::collections::HashMap;
 
 use lsp_server::{ErrorCode, Request, Response};
 use lsp_types::{
-    CompletionItem, CompletionItemKind, CompletionList, CompletionParams, Documentation,
-    InsertTextFormat,
+    CompletionItem, CompletionItemKind, CompletionItemLabelDetails, CompletionList, CompletionParams, Documentation, InsertTextFormat
 };
+use regex::Regex;
 
 use crate::document_store::DOCUMENT_STORE;
 use crate::documentation::get_documentation_for_token;
@@ -88,8 +88,8 @@ pub fn handle_text_document_completion(request: Request) -> Option<Response> {
         }
     }
 
-    // TODO: Refine this.
-    if uri.ends_with(".module") || uri.ends_with(".theme") {
+    let (file_name, extension) = uri.split('/').last()?.split_once('.')?;
+    if extension == "module" || extension == "theme" {
         DOCUMENT_STORE
             .lock()
             .unwrap()
@@ -102,14 +102,23 @@ pub fn handle_text_document_completion(request: Request) -> Option<Response> {
                         if let Some(documentation_string) = get_documentation_for_token(token) {
                             documentation = Some(Documentation::String(documentation_string));
                         }
+                        // Regex to replace placeholders in hook names.
+                        let re = Regex::new(r"([A-Z][A-Z_]+[A-Z])").unwrap();
                         completion_items.push(CompletionItem {
                             label: hook.name.clone(),
-                            kind: Some(CompletionItemKind::FUNCTION),
+                            label_details: Some(CompletionItemLabelDetails {
+                                description: Some("hook".to_string()),
+                                detail: None,
+                            }),
+                            kind: Some(CompletionItemKind::SNIPPET),
+                            insert_text_format: Some(InsertTextFormat::SNIPPET),
                             insert_text: Some(
                                 format!(
-                                    "{}({})",
+                                    "/**\n * Implements {}().\n */\nfunction {}_{}({}) {{\n  $0\n}}",
                                     hook.name,
-                                    hook.parameters.clone().unwrap_or("".to_string())
+                                    file_name,
+                                    re.replace_all(hook.name.replace("hook_", "").as_str(), r"$${$1}"),
+                                    hook.parameters.clone().unwrap_or("".to_string()).replace("$", "\\$")
                                 )
                                 .to_string(),
                             ),

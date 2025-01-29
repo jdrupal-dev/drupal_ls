@@ -4,10 +4,11 @@ use super::handlers::completion::handle_text_document_completion;
 use super::handlers::definition::handle_text_document_definition;
 use super::handlers::hover::handle_text_document_hover;
 
-pub fn handle_request(request: Request) -> Option<Response> {
+pub fn handle_request(request: Request) -> Response {
     log::trace!("Handling request: {:?}", request);
 
-    match request.method.as_str() {
+    let request_id = request.id.clone();
+    let response = match request.method.as_str() {
         "textDocument/hover" => handle_text_document_hover(request),
         "textDocument/definition" => handle_text_document_definition(request),
         "textDocument/completion" => handle_text_document_completion(request),
@@ -15,6 +16,16 @@ pub fn handle_request(request: Request) -> Option<Response> {
             log::warn!("Unhandled request {:?}", request);
             None
         }
+    };
+
+    // The LSP spec requires the result to be null for empty responses.
+    match response {
+        Some(res) => res,
+        None => Response {
+            id: request_id,
+            result: Some(serde_json::Value::Null),
+            error: None,
+        },
     }
 }
 
