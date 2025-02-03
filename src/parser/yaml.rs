@@ -4,17 +4,20 @@ use std::{usize, vec};
 use tree_sitter::{Node, Parser, Point, Tree};
 
 use super::tokens::{
-    DrupalRoute, DrupalRouteDefaults, DrupalService, PhpClassName, PhpMethod, Token, TokenData,
+    DrupalPermission, DrupalRoute, DrupalRouteDefaults, DrupalService, PhpClassName, PhpMethod,
+    Token, TokenData,
 };
 
 pub struct YamlParser {
     source: String,
+    uri: String,
 }
 
 impl YamlParser {
-    pub fn new(source: &str) -> Self {
+    pub fn new(source: &str, uri: &str) -> Self {
         Self {
             source: source.to_string(),
+            uri: uri.to_string(),
         }
     }
 
@@ -95,8 +98,20 @@ impl YamlParser {
         let value_node = node.child_by_field_name("value")?;
 
         if let Some(map) = self.get_block_node_map(&value_node) {
+            // Parse Drupal Permission.
+            if self.uri.ends_with(".permissions.yml") {
+                if let Some(title) = map.get("title") {
+                    return Some(Token::new(
+                        TokenData::DrupalPermissionDefinition(DrupalPermission {
+                            name: key.to_string(),
+                            title: self.get_node_text(title).to_string(),
+                        }),
+                        node.range(),
+                    ));
+                }
+            }
             // Parse Drupal Route.
-            if let (Some(path), Some(defaults)) = (map.get("path"), map.get("defaults")) {
+            else if let (Some(path), Some(defaults)) = (map.get("path"), map.get("defaults")) {
                 return Some(Token::new(
                     TokenData::DrupalRouteDefinition(DrupalRoute {
                         name: key.to_string(),
@@ -130,6 +145,18 @@ impl YamlParser {
             )),
             "_form" | "class" => Some(Token::new(
                 TokenData::PhpClassReference(PhpClassName::from(self.get_node_text(&value_node))),
+                value_node.range(),
+            )),
+            "_permission" => Some(Token::new(
+                TokenData::DrupalPermissionReference(
+                    self.get_node_text(&value_node).to_string().replace("'", ""),
+                ),
+                value_node.range(),
+            )),
+            "route_name" => Some(Token::new(
+                TokenData::DrupalRouteReference(
+                    self.get_node_text(&value_node).to_string().replace("'", ""),
+                ),
                 value_node.range(),
             )),
             "arguments" => {

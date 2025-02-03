@@ -65,6 +65,7 @@ fn provide_definition_for_token(token: &Token) -> Option<GotoDefinitionResponse>
         }
         TokenData::DrupalRouteReference(route_name) => store.get_route_definition(route_name),
         TokenData::DrupalHookReference(hook_name) => store.get_hook_definition(hook_name),
+        TokenData::DrupalPermissionReference(permission_name) => store.get_permission_definition(permission_name),
         _ => None,
     }?;
 

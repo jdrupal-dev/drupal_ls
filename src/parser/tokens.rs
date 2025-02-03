@@ -1,3 +1,4 @@
+use regex::Regex;
 use std::collections::HashMap;
 use tree_sitter::Range;
 
@@ -25,6 +26,8 @@ pub enum TokenData {
     DrupalServiceDefinition(DrupalService),
     DrupalHookReference(String),
     DrupalHookDefinition(DrupalHook),
+    DrupalPermissionDefinition(DrupalPermission),
+    DrupalPermissionReference(String),
 }
 
 #[derive(Debug, PartialEq)]
@@ -82,6 +85,19 @@ pub struct DrupalRoute {
     pub defaults: DrupalRouteDefaults,
 }
 
+impl DrupalRoute {
+    pub fn get_route_parameters(&self) -> Vec<&str> {
+        let re = Regex::new(r"\{([^{}]+)\}");
+        match re {
+            Ok(re) => re
+                .captures_iter(&self.path)
+                .map(|c| c.get(1).unwrap().as_str())
+                .collect(),
+            Err(_) => vec![],
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct DrupalRouteDefaults {
     pub controller: Option<PhpMethod>,
@@ -101,6 +117,12 @@ pub struct DrupalService {
 pub struct DrupalHook {
     pub name: String,
     pub parameters: Option<String>,
+}
+
+#[derive(Debug)]
+pub struct DrupalPermission {
+    pub name: String,
+    pub title: String,
 }
 
 #[cfg(test)]

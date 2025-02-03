@@ -145,15 +145,21 @@ impl PhpParser {
         let name_node = node.child_by_field_name("name")?;
         let name = self.get_node_text(&name_node);
 
-        if name == "fromRoute" || name == "createFromRoute" {
+        if name == "fromRoute" || name == "createFromRoute" || name == "setRedirect" {
             return Some(Token::new(
                 TokenData::DrupalRouteReference(self.get_node_text(&string_content).to_string()),
                 node.range(),
             ));
-        }
-        if name == "service" {
+        } else if name == "service" {
             return Some(Token::new(
                 TokenData::DrupalServiceReference(self.get_node_text(&string_content).to_string()),
+                node.range(),
+            ));
+        } else if name == "hasPermission" {
+            return Some(Token::new(
+                TokenData::DrupalPermissionReference(
+                    self.get_node_text(&string_content).to_string(),
+                ),
                 node.range(),
             ));
         }

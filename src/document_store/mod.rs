@@ -28,11 +28,15 @@ pub fn initialize_document_store(root_dir: String) {
     let mut override_builder = OverrideBuilder::new(&root_dir);
     override_builder.add("**/*.services.yml").unwrap();
     override_builder.add("**/*.routing.yml").unwrap();
+    override_builder.add("**/*.permissions.yml").unwrap();
+    override_builder.add("**/*.menu.yml").unwrap();
     override_builder.add("**/src/**/*.php").unwrap();
     override_builder.add("**/core/lib/**/*.php").unwrap();
     // For now we don't care about interfaces at all.
     override_builder.add("!**/src/**/*Interface.php").unwrap();
-    override_builder.add("!**/core/lib/**/*Interface.php").unwrap();
+    override_builder
+        .add("!**/core/lib/**/*Interface.php")
+        .unwrap();
     override_builder.add("!**/Plugin/**/*.php").unwrap();
     override_builder.add("!vendor").unwrap();
     override_builder.add("!node_modules").unwrap();
@@ -80,7 +84,7 @@ pub fn initialize_document_store(root_dir: String) {
     log::info!(
         "Parsed {} files in {} seconds",
         documents.len(),
-        now.elapsed().unwrap().as_secs()
+        now.elapsed().unwrap().as_secs_f64()
     );
 
     DOCUMENT_STORE.lock().unwrap().add_documents(documents);
@@ -209,6 +213,23 @@ impl DocumentStore {
                 document.tokens.iter().find(|token| {
                     if let TokenData::DrupalHookDefinition(hook) = &token.data {
                         return hook.name == hook_name;
+                    }
+                    return false;
+                })?,
+            ))
+        })
+    }
+
+    pub fn get_permission_definition(&self, permission_name: &str) -> Option<(&Document, &Token)> {
+        let files = self.get_documents_by_file_type(FileType::Yaml);
+        log::info!("{}", permission_name);
+
+        files.iter().find_map(|&document| {
+            Some((
+                document,
+                document.tokens.iter().find(|token| {
+                    if let TokenData::DrupalPermissionDefinition(permission) = &token.data {
+                        return permission.name == permission_name;
                     }
                     return false;
                 })?,

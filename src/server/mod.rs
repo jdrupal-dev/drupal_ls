@@ -8,7 +8,7 @@ use anyhow::Result;
 use lsp_server::{Connection, Message};
 use lsp_types::{
     CompletionOptions, HoverProviderCapability, InitializeParams, ServerCapabilities,
-    TextDocumentSyncCapability, TextDocumentSyncKind,
+    TextDocumentSyncCapability, TextDocumentSyncKind, WorkDoneProgressOptions,
 };
 
 use crate::document_store::initialize_document_store;
@@ -46,7 +46,7 @@ pub async fn start_lsp() -> Result<()> {
         hover_provider: Some(HoverProviderCapability::Simple(true)),
         definition_provider: Some(lsp_types::OneOf::Left(true)),
         completion_provider: Some(CompletionOptions {
-            trigger_characters: Some(vec!["@".to_string()]),
+            trigger_characters: Some(vec!["@".to_string(), " ".to_string()]),
             ..CompletionOptions::default()
         }),
         ..Default::default()

@@ -42,7 +42,7 @@ impl Document {
                 parser.get_tokens()
             }
             FileType::Yaml => {
-                let parser = YamlParser::new(&self.content);
+                let parser = YamlParser::new(&self.content, &self.uri);
                 parser.get_tokens()
             }
             FileType::Unknown => {
@@ -61,11 +61,11 @@ impl Document {
             FileType::Php => {
                 let parser = PhpParser::new(&self.content);
                 return parser.get_token_at_position(position);
-            },
+            }
             FileType::Yaml => {
-                let parser = YamlParser::new(&self.content);
+                let parser = YamlParser::new(&self.content, &self.uri);
                 return parser.get_token_at_position(position);
-            },
+            }
             _ => None,
         }
     }

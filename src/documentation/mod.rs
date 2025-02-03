@@ -60,6 +60,22 @@ const HOOK_DEFINITION: &str = r#"
 ```
 "#;
 
+const PERMISSION_REFERENCE: &str = r#"
+# Permission reference: @name
+
+*Implementation:*
+```yaml
+@definition
+```
+
+@see [@uri](@uri)
+"#;
+
+const PERMISSION_DEFINITION: &str = r#"
+# Permission: @name
+Title: @title
+"#;
+
 pub fn get_documentation_for_token(token: &Token) -> Option<String> {
     match &token.data {
         TokenData::PhpClassReference(class) => {
@@ -137,6 +153,28 @@ pub fn get_documentation_for_token(token: &Token) -> Option<String> {
                 &hook.parameters.clone().unwrap_or(String::default()),
             ))
         }
+        TokenData::DrupalPermissionReference(permission_name) => {
+            let store = DOCUMENT_STORE.lock().unwrap();
+
+            let (source_document, token) = store.get_permission_definition(permission_name)?;
+            if let TokenData::DrupalPermissionDefinition(permission) = &token.data {
+                let definition =
+                    &source_document.content[token.range.start_byte..token.range.end_byte];
+
+                return Some(
+                    PERMISSION_REFERENCE
+                        .replace("@name", &permission.name)
+                        .replace("@uri", source_document.get_uri()?.as_str())
+                        .replace("@definition", definition),
+                );
+            }
+            None
+        }
+        TokenData::DrupalPermissionDefinition(permission) => Some(
+            PERMISSION_DEFINITION
+                .replace("@name", &permission.name)
+                .replace("@title", &permission.title),
+        ),
         _ => None,
     }
 }
