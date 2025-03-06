@@ -63,7 +63,7 @@ impl PhpParser {
 
         let mut current_nodes: Box<Vec<Node>> = Box::new(nodes);
         while current_nodes.len() > 0 {
-            let mut new_nodes: Box<Vec<Node>> = Box::new(Vec::new());
+            let mut new_nodes: Box<Vec<Node>> = Box::default();
             for node in current_nodes.into_iter() {
                 if node.is_error() {
                     continue;
@@ -122,7 +122,7 @@ impl PhpParser {
         let text = self.get_node_text(&node);
 
         // A comment with the text "Implements hook_NAME" is a reference to a Drupal hook.
-        if text.find("Implements hook_").is_some() {
+        if text.contains("Implements hook_") {
             let start_bytes = text.find("hook_")?;
             let end_bytes = text.find("()")?;
 
@@ -186,8 +186,8 @@ impl PhpParser {
             let mut cursor = body_node.walk();
             body_node.children(&mut cursor).for_each(|child| {
                 if let Some(token) = self.parse_method_declaration(child) {
-                    if let Some(name_node) = child.child_by_field_name("name") {
-                        methods.insert(self.get_node_text(&name_node).to_string(), Box::new(token));
+                    if let TokenData::PhpMethodDefinition(token_data) = &token.data {
+                        methods.insert(token_data.name.clone(), Box::new(token));
                     }
                 }
             });
@@ -211,13 +211,13 @@ impl PhpParser {
         let class_node = get_closest_parent_by_kind(&node, "class_declaration")?;
 
         let name_node = node.child_by_field_name("name")?;
-        return Some(Token::new(
+        Some(Token::new(
             TokenData::PhpMethodDefinition(PhpMethod {
                 name: self.get_node_text(&name_node).to_string(),
                 class_name: self.get_class_name_from_node(class_node)?,
             }),
             node.range(),
-        ));
+        ))
     }
 
     fn get_class_name_from_node(&self, node: Node) -> Option<PhpClassName> {

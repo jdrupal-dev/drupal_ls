@@ -8,7 +8,7 @@ use anyhow::Result;
 use lsp_server::{Connection, Message};
 use lsp_types::{
     CompletionOptions, HoverProviderCapability, InitializeParams, ServerCapabilities,
-    TextDocumentSyncCapability, TextDocumentSyncKind, WorkDoneProgressOptions,
+    TextDocumentSyncCapability, TextDocumentSyncKind,
 };
 
 use crate::document_store::initialize_document_store;
@@ -17,7 +17,7 @@ use crate::utils::uri_to_url;
 use self::handle_notification::handle_notification;
 use self::handle_request::handle_request;
 
-async fn main_loop(connection: Connection) -> () {
+async fn main_loop(connection: Connection) {
     for msg in &connection.receiver {
         match msg {
             Message::Notification(notification) => handle_notification(notification),
@@ -58,7 +58,7 @@ pub async fn start_lsp() -> Result<()> {
 
     if let Some(folders) = initialize_params.workspace_folders {
         let uri = folders
-            .get(0)
+            .first()
             .expect("Unable to initialize without a workspace folder")
             .uri
             .clone();

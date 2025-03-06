@@ -29,18 +29,14 @@ pub fn handle_text_document_hover(request: Request) -> Option<Response> {
         token = document.get_token_under_cursor(params.text_document_position_params.position);
     }
 
-    let Some(token) = token else {
-        return None;
-    };
-
     let hover_result = Hover {
         contents: HoverContents::Scalar(lsp_types::MarkedString::String(
-            get_documentation_for_token(&token)?,
+            get_documentation_for_token(&token?)?,
         )),
         range: None,
     };
 
-    return match serde_json::to_value(hover_result) {
+    match serde_json::to_value(hover_result) {
         Ok(result) => Some(Response {
             id: request.id,
             result: Some(result),
@@ -51,5 +47,5 @@ pub fn handle_text_document_hover(request: Request) -> Option<Response> {
             ErrorCode::InternalError,
             format!("No hover found: {:?}", error),
         )),
-    };
+    }
 }

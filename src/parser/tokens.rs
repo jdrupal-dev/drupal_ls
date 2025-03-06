@@ -82,7 +82,7 @@ impl TryFrom<&str> for PhpMethod {
 pub struct DrupalRoute {
     pub name: String,
     pub path: String,
-    pub defaults: DrupalRouteDefaults,
+    pub _defaults: DrupalRouteDefaults,
 }
 
 impl DrupalRoute {
@@ -100,17 +100,16 @@ impl DrupalRoute {
 
 #[derive(Debug)]
 pub struct DrupalRouteDefaults {
-    pub controller: Option<PhpMethod>,
-    pub form: Option<PhpClassName>,
-    pub entity_form: Option<String>,
-    pub title: Option<String>,
+    pub _controller: Option<PhpMethod>,
+    pub _form: Option<PhpClassName>,
+    pub _entity_form: Option<String>,
+    pub _title: Option<String>,
 }
 
 #[derive(Debug)]
 pub struct DrupalService {
     pub name: String,
     pub class: PhpClassName,
-    pub arguments: Option<Vec<String>>,
 }
 
 #[derive(Debug)]
@@ -173,6 +172,6 @@ mod tests {
                 .class_name
                 .to_string()
         );
-        assert_eq!(true, PhpMethod::try_from("invalid class").is_err());
+        assert!(PhpMethod::try_from("invalid class").is_err());
     }
 }

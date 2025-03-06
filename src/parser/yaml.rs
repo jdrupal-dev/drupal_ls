@@ -1,6 +1,6 @@
 use lsp_types::Position;
 use std::collections::HashMap;
-use std::{usize, vec};
+use std::vec;
 use tree_sitter::{Node, Parser, Point, Tree};
 
 use super::tokens::{
@@ -27,12 +27,12 @@ impl YamlParser {
         parser.parse(self.source.as_bytes(), None)
     }
 
-    pub fn get_tokens<'a>(&self) -> Vec<Token> {
+    pub fn get_tokens(&self) -> Vec<Token> {
         let tree = self.get_tree();
         self.parse_nodes(vec![tree.unwrap().root_node()])
     }
 
-    pub fn get_token_at_position<'a>(&self, position: Position) -> Option<Token> {
+    pub fn get_token_at_position(&self, position: Position) -> Option<Token> {
         let tree = self.get_tree()?;
         let mut node = self.get_node_at_position(&tree, position)?;
         let point = self.position_to_point(position);
@@ -58,12 +58,12 @@ impl YamlParser {
         Point::new(position.line as usize, position.character as usize)
     }
 
-    fn parse_nodes<'a>(&self, nodes: Vec<Node>) -> Vec<Token> {
+    fn parse_nodes(&self, nodes: Vec<Node>) -> Vec<Token> {
         let mut tokens: Vec<Token> = vec![];
 
         let mut current_nodes: Box<Vec<Node>> = Box::new(nodes.clone());
         while current_nodes.len() > 0 {
-            let mut new_nodes: Box<Vec<Node>> = Box::new(Vec::new());
+            let mut new_nodes: Box<Vec<Node>> = Box::default();
             for node in current_nodes.into_iter() {
                 if node.is_error() {
                     continue;
@@ -85,14 +85,14 @@ impl YamlParser {
         tokens
     }
 
-    fn parse_node<'a>(&self, node: Node, point: Option<Point>) -> Option<Token> {
+    fn parse_node(&self, node: Node, point: Option<Point>) -> Option<Token> {
         match node.kind() {
             "block_mapping_pair" => self.parse_block_mapping_pair(node, point),
             _ => None,
         }
     }
 
-    fn parse_block_mapping_pair<'a>(&self, node: Node, point: Option<Point>) -> Option<Token> {
+    fn parse_block_mapping_pair(&self, node: Node, point: Option<Point>) -> Option<Token> {
         let key_node = node.child_by_field_name("key")?;
         let key = self.get_node_text(&key_node);
         let value_node = node.child_by_field_name("value")?;
@@ -116,7 +116,7 @@ impl YamlParser {
                     TokenData::DrupalRouteDefinition(DrupalRoute {
                         name: key.to_string(),
                         path: self.get_node_text(path).to_string(),
-                        defaults: self.parse_route_defaults(defaults)?,
+                        _defaults: self.parse_route_defaults(defaults)?,
                     }),
                     node.range(),
                 ));
@@ -127,9 +127,6 @@ impl YamlParser {
                     TokenData::DrupalServiceDefinition(DrupalService {
                         name: key.to_string(),
                         class: PhpClassName::from(self.get_node_text(class)),
-                        arguments: map
-                            .get("arguments")
-                            .and_then(|arguments| self.parse_flow_sequence(arguments)),
                     }),
                     node.range(),
                 ));
@@ -180,21 +177,21 @@ impl YamlParser {
         }
     }
 
-    fn parse_route_defaults<'a>(&self, node: &'a Node) -> Option<DrupalRouteDefaults> {
-        let map = self.get_block_node_map(&node)?;
+    fn parse_route_defaults(&self, node: &Node) -> Option<DrupalRouteDefaults> {
+        let map = self.get_block_node_map(node)?;
         Some(DrupalRouteDefaults {
-            controller: map
+            _controller: map
                 .get("_controller")
                 .and_then(|node| PhpMethod::try_from(self.get_node_text(node)).ok()),
-            form: map
+            _form: map
                 .get("_form")
-                .and_then(|node| Some(PhpClassName::from(self.get_node_text(node)))),
-            entity_form: map
+                .map(|node| PhpClassName::from(self.get_node_text(node))),
+            _entity_form: map
                 .get("_form")
-                .and_then(|node| Some(self.get_node_text(node).to_string())),
-            title: map
+                .map(|node| self.get_node_text(node).to_string()),
+            _title: map
                 .get("_title")
-                .and_then(|node| Some(self.get_node_text(node).to_string())),
+                .map(|node| self.get_node_text(node).to_string()),
         })
     }
 
@@ -205,31 +202,15 @@ impl YamlParser {
 
         let mut result: HashMap<&str, Node<'a>> = HashMap::new();
         let mut cursor = node.walk();
-        node.child(0)?
-            .children(&mut cursor)
-            .into_iter()
-            .for_each(|child| {
-                if let (Some(key), Some(value)) = (
-                    child.child_by_field_name("key"),
-                    child.child_by_field_name("value"),
-                ) {
-                    result.insert(self.get_node_text(&key), value);
-                }
-            });
+        node.child(0)?.children(&mut cursor).for_each(|child| {
+            if let (Some(key), Some(value)) = (
+                child.child_by_field_name("key"),
+                child.child_by_field_name("value"),
+            ) {
+                result.insert(self.get_node_text(&key), value);
+            }
+        });
         Some(result)
-    }
-
-    fn parse_flow_sequence<'a>(&self, node: &'a Node) -> Option<Vec<String>> {
-        if node.kind() != "flow_sequence" {
-            return None;
-        }
-
-        let mut cursor = node.walk();
-        Some(
-            node.children(&mut cursor)
-                .map(|item| self.get_node_text(&item).to_string())
-                .collect(),
-        )
     }
 
     fn get_node_text(&self, node: &Node) -> &str {

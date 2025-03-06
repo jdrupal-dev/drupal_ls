@@ -4,7 +4,7 @@ use serde_json::Value;
 
 use crate::document_store::DOCUMENT_STORE;
 
-pub fn handle_notification(notification: Notification) -> () {
+pub fn handle_notification(notification: Notification) {
     log::trace!("Handling notification: {:?}", notification);
 
     match notification.method.as_str() {

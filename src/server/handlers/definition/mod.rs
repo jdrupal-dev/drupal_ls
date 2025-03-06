@@ -36,11 +36,8 @@ pub fn handle_text_document_definition(request: Request) -> Option<Response> {
         });
     };
 
-    let Some(definition_result) = provide_definition_for_token(&token) else {
-        return None;
-    };
-
-    return match serde_json::to_value(definition_result) {
+    let definition_result = provide_definition_for_token(&token)?;
+    match serde_json::to_value(definition_result) {
         Ok(result) => Some(Response {
             id: request.id,
             result: Some(result),
@@ -51,7 +48,7 @@ pub fn handle_text_document_definition(request: Request) -> Option<Response> {
             ErrorCode::InternalError,
             format!("No hover found: {:?}", error),
         )),
-    };
+    }
 }
 
 fn provide_definition_for_token(token: &Token) -> Option<GotoDefinitionResponse> {
@@ -69,7 +66,7 @@ fn provide_definition_for_token(token: &Token) -> Option<GotoDefinitionResponse>
         _ => None,
     }?;
 
-    return Some(GotoDefinitionResponse::Scalar(lsp_types::Location {
+    Some(GotoDefinitionResponse::Scalar(lsp_types::Location {
         uri: source_document.get_uri()?,
         range: Range {
             start: Position {
@@ -81,5 +78,5 @@ fn provide_definition_for_token(token: &Token) -> Option<GotoDefinitionResponse>
                 character: token.range.end_point.column as u32,
             },
         },
-    }));
+    }))
 }

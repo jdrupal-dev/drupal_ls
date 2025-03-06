@@ -103,7 +103,7 @@ pub fn handle_text_document_completion(request: Request) -> Option<Response> {
 
                                 let route_parameters = route.get_route_parameters();
                                 let mut route_parameters_text = String::new();
-                                if route_parameters.len() > 0 {
+                                if !route_parameters.is_empty() {
                                     route_parameters_text = format!(
                                         ", [{}]",
                                         route_parameters
@@ -234,7 +234,7 @@ pub fn handle_text_document_completion(request: Request) -> Option<Response> {
             });
     }
 
-    if completion_items.len() == 0 {
+    if completion_items.is_empty() {
         return Some(Response {
             id: request.id,
             result: None,
@@ -247,7 +247,7 @@ pub fn handle_text_document_completion(request: Request) -> Option<Response> {
         items: completion_items,
     };
 
-    return match serde_json::to_value(completion_result) {
+    match serde_json::to_value(completion_result) {
         Ok(result) => Some(Response {
             id: request.id,
             result: Some(result),
@@ -258,7 +258,7 @@ pub fn handle_text_document_completion(request: Request) -> Option<Response> {
             ErrorCode::InternalError,
             format!("Unable to parse completion result: {:?}", error),
         )),
-    };
+    }
 }
 
 fn get_global_snippets() -> Vec<CompletionItem> {
