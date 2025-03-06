@@ -91,13 +91,13 @@ pub fn initialize_document_store(root_dir: String) {
 }
 
 pub struct DocumentStore {
-    documents: Box<HashMap<String, Document>>,
+    documents: HashMap<String, Document>,
 }
 
 impl DocumentStore {
     pub fn new() -> Self {
         Self {
-            documents: Box::new(HashMap::new()),
+            documents: HashMap::new(),
         }
     }
 
@@ -156,7 +156,7 @@ impl DocumentStore {
                     if let TokenData::DrupalServiceDefinition(service) = &token.data {
                         return service.name == service_name;
                     }
-                    return false;
+                    false
                 })?,
             ))
         })
@@ -172,7 +172,7 @@ impl DocumentStore {
                     if let TokenData::DrupalRouteDefinition(route) = &token.data {
                         return route.name == route_name;
                     }
-                    return false;
+                    false
                 })?,
             ))
         })
@@ -188,7 +188,7 @@ impl DocumentStore {
                     if let TokenData::PhpClassDefinition(class) = &token.data {
                         return class.name == *class_name;
                     }
-                    return false;
+                    false
                 })?,
             ))
         })
@@ -214,7 +214,7 @@ impl DocumentStore {
                     if let TokenData::DrupalHookDefinition(hook) = &token.data {
                         return hook.name == hook_name;
                     }
-                    return false;
+                    false
                 })?,
             ))
         })
@@ -231,7 +231,7 @@ impl DocumentStore {
                     if let TokenData::DrupalPermissionDefinition(permission) = &token.data {
                         return permission.name == permission_name;
                     }
-                    return false;
+                    false
                 })?,
             ))
         })

@@ -60,18 +60,18 @@ impl Document {
         match self.file_type {
             FileType::Php => {
                 let parser = PhpParser::new(&self.content);
-                return parser.get_token_at_position(position);
+                parser.get_token_at_position(position)
             }
             FileType::Yaml => {
                 let parser = YamlParser::new(&self.content, &self.uri);
-                return parser.get_token_at_position(position);
+                parser.get_token_at_position(position)
             }
             _ => None,
         }
     }
 }
 
-fn uri_to_file_type(uri: &String) -> FileType {
+fn uri_to_file_type(uri: &str) -> FileType {
     if uri.ends_with(".yml") || uri.ends_with(".yaml") {
         FileType::Yaml
     } else if uri.ends_with(".php")

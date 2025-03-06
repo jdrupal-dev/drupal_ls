@@ -83,8 +83,7 @@ pub fn get_documentation_for_token(token: &Token) -> Option<String> {
         }
         TokenData::PhpMethodReference(method) => Some(format!(
             "PHP Method reference\nclass: {}\nmethod: {}",
-            method.class_name.to_string(),
-            method.name
+            method.class_name, method.name
         )),
         TokenData::DrupalRouteReference(route_name) => {
             let store = DOCUMENT_STORE.lock().unwrap();
