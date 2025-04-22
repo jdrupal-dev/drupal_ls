@@ -1,12 +1,12 @@
 use lsp_types::Position;
 use std::collections::HashMap;
 use std::vec;
-use tree_sitter::{Node, Parser, Point, Tree};
+use tree_sitter::{Node, Point};
 
-use super::tokens::{
+use super::{get_node_at_position, get_tree, position_to_point, tokens::{
     DrupalPermission, DrupalRoute, DrupalRouteDefaults, DrupalService, PhpClassName, PhpMethod,
     Token, TokenData,
-};
+}};
 
 pub struct YamlParser {
     source: String,
@@ -21,21 +21,15 @@ impl YamlParser {
         }
     }
 
-    pub fn get_tree(&self) -> Option<Tree> {
-        let mut parser = Parser::new();
-        parser.set_language(&tree_sitter_yaml::language()).ok()?;
-        parser.parse(self.source.as_bytes(), None)
-    }
-
     pub fn get_tokens(&self) -> Vec<Token> {
-        let tree = self.get_tree();
+        let tree = get_tree(&self.source, &tree_sitter_yaml::language());
         self.parse_nodes(vec![tree.unwrap().root_node()])
     }
 
     pub fn get_token_at_position(&self, position: Position) -> Option<Token> {
-        let tree = self.get_tree()?;
-        let mut node = self.get_node_at_position(&tree, position)?;
-        let point = self.position_to_point(position);
+        let tree = get_tree(&self.source, &tree_sitter_yaml::language())?;
+        let mut node = get_node_at_position(&tree, position)?;
+        let point = position_to_point(position);
 
         // Return the first "parseable" token in the parent chain.
         let mut parsed_node: Option<Token>;
@@ -47,15 +41,6 @@ impl YamlParser {
             node = node.parent()?;
         }
         parsed_node
-    }
-
-    fn get_node_at_position<'a>(&self, tree: &'a Tree, position: Position) -> Option<Node<'a>> {
-        let start = self.position_to_point(position);
-        tree.root_node().descendant_for_point_range(start, start)
-    }
-
-    fn position_to_point(&self, position: Position) -> Point {
-        Point::new(position.line as usize, position.character as usize)
     }
 
     fn parse_nodes(&self, nodes: Vec<Node>) -> Vec<Token> {

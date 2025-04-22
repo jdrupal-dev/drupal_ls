@@ -10,7 +10,7 @@ use regex::Regex;
 
 use crate::document_store::DOCUMENT_STORE;
 use crate::documentation::get_documentation_for_token;
-use crate::parser::tokens::{Token, TokenData};
+use crate::parser::tokens::{ClassAttribute, Token, TokenData};
 use crate::server::handle_request::get_response_error;
 
 pub fn handle_text_document_completion(request: Request) -> Option<Response> {
@@ -44,8 +44,9 @@ pub fn handle_text_document_completion(request: Request) -> Option<Response> {
         token = document.get_token_under_cursor(position);
     }
 
-    let mut completion_items: Vec<CompletionItem> = get_global_snippets();
+    let (file_name, extension) = uri.split('/').last()?.split_once('.')?;
 
+    let mut completion_items: Vec<CompletionItem> = get_global_snippets();
     if let Some(token) = token {
         if let TokenData::DrupalRouteReference(_) = token.data {
             let re = Regex::new(r"(?<method>.*fromRoute\(')(?<name>[^']*)'(?<params>, \[.*\])?");
@@ -130,6 +131,10 @@ pub fn handle_text_document_completion(request: Request) -> Option<Response> {
                             }
                             completion_items.push(CompletionItem {
                                 label: route.name.clone(),
+                                label_details: Some(CompletionItemLabelDetails {
+                                    description: Some("Route".to_string()),
+                                    detail: None,
+                                }),
                                 kind: Some(CompletionItemKind::REFERENCE),
                                 documentation,
                                 text_edit,
@@ -155,6 +160,10 @@ pub fn handle_text_document_completion(request: Request) -> Option<Response> {
                             }
                             completion_items.push(CompletionItem {
                                 label: service.name.clone(),
+                                label_details: Some(CompletionItemLabelDetails {
+                                    description: Some("Service".to_string()),
+                                    detail: None,
+                                }),
                                 kind: Some(CompletionItemKind::REFERENCE),
                                 documentation,
                                 deprecated: Some(false),
@@ -163,6 +172,26 @@ pub fn handle_text_document_completion(request: Request) -> Option<Response> {
                         }
                     })
                 });
+        } else if let TokenData::PhpMethodReference(method) = token.data {
+            let store = DOCUMENT_STORE.lock().unwrap();
+            // TODO: Don't suggest private/protected methods.
+            if let Some((_, class_token)) = store.get_class_definition(&method.get_class(&store)?) {
+                if let TokenData::PhpClassDefinition(class) = &class_token.data {
+                    class.methods.keys().for_each(|method_name| {
+                        completion_items.push(CompletionItem {
+                            label: method_name.clone(),
+                            label_details: Some(CompletionItemLabelDetails {
+                                description: Some("Method".to_string()),
+                                detail: None,
+                            }),
+                            kind: Some(CompletionItemKind::REFERENCE),
+                            documentation: None,
+                            deprecated: Some(false),
+                            ..CompletionItem::default()
+                        });
+                    });
+                }
+            }
         } else if let TokenData::DrupalPermissionReference(_) = token.data {
             DOCUMENT_STORE
                 .lock()
@@ -180,6 +209,10 @@ pub fn handle_text_document_completion(request: Request) -> Option<Response> {
                             // label.
                             completion_items.push(CompletionItem {
                                 label: permission.name.clone(),
+                                label_details: Some(CompletionItemLabelDetails {
+                                    description: Some("Permission".to_string()),
+                                    detail: None,
+                                }),
                                 kind: Some(CompletionItemKind::REFERENCE),
                                 documentation,
                                 deprecated: Some(false),
@@ -188,11 +221,42 @@ pub fn handle_text_document_completion(request: Request) -> Option<Response> {
                         }
                     })
                 });
+        } else if let TokenData::DrupalPluginReference(plugin_reference) = token.data {
+            DOCUMENT_STORE
+                .lock()
+                .unwrap()
+                .get_documents()
+                .values()
+                .for_each(|document| {
+                    document.tokens.iter().for_each(|token| {
+                        if let TokenData::PhpClassDefinition(class) = &token.data {
+                            if let Some(ClassAttribute::Plugin(plugin)) = &class.attribute {
+                                if plugin_reference.plugin_type == plugin.plugin_type {
+                                    let mut documentation = None;
+                                    if let Some(documentation_string) =
+                                        get_documentation_for_token(token)
+                                    {
+                                        documentation =
+                                            Some(Documentation::String(documentation_string));
+                                    }
+                                    completion_items.push(CompletionItem {
+                                        label: plugin.plugin_id.clone(),
+                                        label_details: Some(CompletionItemLabelDetails {
+                                            description: Some(plugin.plugin_type.to_string()),
+                                            detail: None,
+                                        }),
+                                        kind: Some(CompletionItemKind::REFERENCE),
+                                        documentation,
+                                        deprecated: Some(false),
+                                        ..CompletionItem::default()
+                                    });
+                                }
+                            }
+                        }
+                    })
+                });
         }
-    }
-
-    let (file_name, extension) = uri.split('/').last()?.split_once('.')?;
-    if extension == "module" || extension == "theme" {
+    } else if extension == "module" || extension == "theme" {
         DOCUMENT_STORE
             .lock()
             .unwrap()

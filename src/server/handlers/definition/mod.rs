@@ -57,12 +57,11 @@ fn provide_definition_for_token(token: &Token) -> Option<GotoDefinitionResponse>
     let (source_document, token) = match &token.data {
         TokenData::PhpClassReference(class) => store.get_class_definition(class),
         TokenData::PhpMethodReference(method) => store.get_method_definition(method),
-        TokenData::DrupalServiceReference(service_name) => {
-            store.get_service_definition(service_name)
-        }
-        TokenData::DrupalRouteReference(route_name) => store.get_route_definition(route_name),
-        TokenData::DrupalHookReference(hook_name) => store.get_hook_definition(hook_name),
-        TokenData::DrupalPermissionReference(permission_name) => store.get_permission_definition(permission_name),
+        TokenData::DrupalServiceReference(name) => store.get_service_definition(name),
+        TokenData::DrupalRouteReference(name) => store.get_route_definition(name),
+        TokenData::DrupalHookReference(name) => store.get_hook_definition(name),
+        TokenData::DrupalPermissionReference(name) => store.get_permission_definition(name),
+        TokenData::DrupalPluginReference(plugin_id) => store.get_plugin_definition(plugin_id),
         _ => None,
     }?;
 

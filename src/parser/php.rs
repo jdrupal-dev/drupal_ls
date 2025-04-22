@@ -1,17 +1,18 @@
-use std::collections::HashMap;
-
 use lsp_types::Position;
-use tree_sitter::{Node, Parser, Point, Tree};
+use regex::Regex;
+use std::collections::HashMap;
+use tree_sitter::{Node, Point};
 
-use super::get_closest_parent_by_kind;
-use super::tokens::{DrupalHook, PhpClass, PhpClassName, PhpMethod, Token, TokenData};
+use super::tokens::{
+    ClassAttribute, DrupalHook, DrupalPlugin, DrupalPluginReference, DrupalPluginType, PhpClass,
+    PhpClassName, PhpMethod, Token, TokenData,
+};
+use super::{get_closest_parent_by_kind, get_node_at_position, get_tree, position_to_point};
 
 pub struct PhpParser {
     source: String,
 }
 
-// TODO: A lot of code has been copied from the yaml parser.
-// How can we DRY this up?
 impl PhpParser {
     pub fn new(source: &str) -> Self {
         Self {
@@ -19,23 +20,15 @@ impl PhpParser {
         }
     }
 
-    pub fn get_tree(&self) -> Option<Tree> {
-        let mut parser = Parser::new();
-        parser
-            .set_language(&tree_sitter_php::LANGUAGE_PHP.into())
-            .ok()?;
-        parser.parse(self.source.as_bytes(), None)
-    }
-
     pub fn get_tokens(&self) -> Vec<Token> {
-        let tree = self.get_tree();
+        let tree = get_tree(&self.source, &tree_sitter_php::LANGUAGE_PHP.into());
         self.parse_nodes(vec![tree.unwrap().root_node()])
     }
 
     pub fn get_token_at_position(&self, position: Position) -> Option<Token> {
-        let tree = self.get_tree()?;
-        let mut node = self.get_node_at_position(&tree, position)?;
-        let point = self.position_to_point(position);
+        let tree = get_tree(&self.source, &tree_sitter_php::LANGUAGE_PHP.into())?;
+        let mut node = get_node_at_position(&tree, position)?;
+        let point = position_to_point(position);
 
         // Return the first "parseable" token in the parent chain.
         let mut parsed_node: Option<Token>;
@@ -47,15 +40,6 @@ impl PhpParser {
             node = node.parent()?;
         }
         parsed_node
-    }
-
-    fn get_node_at_position<'a>(&self, tree: &'a Tree, position: Position) -> Option<Node<'a>> {
-        let start = self.position_to_point(position);
-        tree.root_node().descendant_for_point_range(start, start)
-    }
-
-    fn position_to_point(&self, position: Position) -> Point {
-        Point::new(position.line as usize, position.character as usize)
     }
 
     fn parse_nodes(&self, nodes: Vec<Node>) -> Vec<Token> {
@@ -138,12 +122,30 @@ impl PhpParser {
 
     fn parse_call_expression(&self, node: Node, point: Option<Point>) -> Option<Token> {
         let string_content = node.descendant_for_point_range(point?, point?)?;
+        let name_node = node.child_by_field_name("name")?;
+        let name = self.get_node_text(&name_node);
+
+        if node.kind() == "member_call_expression" {
+            let object_node = node.child_by_field_name("object")?;
+            if self.get_node_text(&object_node).contains("Drupal::service") {
+                let arguments = object_node.child_by_field_name("arguments")?;
+                let service_name = self
+                    .get_node_text(&arguments)
+                    .trim_matches(|c| c == '\'' || c == '(' || c == ')');
+                return Some(Token::new(
+                    TokenData::PhpMethodReference(PhpMethod {
+                        name: name.to_string(),
+                        class_name: None,
+                        service_name: Some(service_name.to_string()),
+                    }),
+                    node.range(),
+                ));
+            }
+        }
+
         if string_content.kind() != "string_content" {
             return None;
         }
-
-        let name_node = node.child_by_field_name("name")?;
-        let name = self.get_node_text(&name_node);
 
         if name == "fromRoute" || name == "createFromRoute" || name == "setRedirect" {
             return Some(Token::new(
@@ -165,16 +167,67 @@ impl PhpParser {
         }
         // TODO: This is a quite primitive way to detect ContainerInterface::get.
         // Can we somehow get the interface of a given variable?
-        if name == "get" {
+        else if name == "get" {
             let object_node = node.child_by_field_name("object")?;
-            if self.get_node_text(&object_node) == "$container" {
+            let object = self.get_node_text(&object_node);
+            if object == "$container" {
                 return Some(Token::new(
                     TokenData::DrupalServiceReference(
                         self.get_node_text(&string_content).to_string(),
                     ),
                     node.range(),
                 ));
+            } else if object.contains("queueFactory") {
+                return Some(Token::new(
+                    TokenData::DrupalPluginReference(DrupalPluginReference {
+                        plugin_type: DrupalPluginType::QueueWorker,
+                        plugin_id: self.get_node_text(&string_content).to_string(),
+                    }),
+                    node.range(),
+                ));
             }
+        } else if name == "getStorage" {
+            let object_node = node.child_by_field_name("object")?;
+            let object = self.get_node_text(&object_node);
+            if object.contains("entityTypeManager") {
+                return Some(Token::new(
+                    TokenData::DrupalPluginReference(DrupalPluginReference {
+                        plugin_type: DrupalPluginType::EntityType,
+                        plugin_id: self.get_node_text(&string_content).to_string(),
+                    }),
+                    node.range(),
+                ));
+            }
+        } else if name == "create" {
+            let scope_node = node.child_by_field_name("scope")?;
+            if self
+                .get_node_text(&scope_node)
+                .contains("BaseFieldDefinition")
+            {
+                return Some(Token::new(
+                    TokenData::DrupalPluginReference(DrupalPluginReference {
+                        plugin_type: DrupalPluginType::FieldType,
+                        plugin_id: self.get_node_text(&string_content).to_string(),
+                    }),
+                    node.range(),
+                ));
+            } else if self.get_node_text(&scope_node).contains("DataDefinition") {
+                return Some(Token::new(
+                    TokenData::DrupalPluginReference(DrupalPluginReference {
+                        plugin_type: DrupalPluginType::DataType,
+                        plugin_id: self.get_node_text(&string_content).to_string(),
+                    }),
+                    node.range(),
+                ));
+            }
+        } else if name == "queue" {
+            return Some(Token::new(
+                TokenData::DrupalPluginReference(DrupalPluginReference {
+                    plugin_type: DrupalPluginType::QueueWorker,
+                    plugin_id: self.get_node_text(&string_content).to_string(),
+                }),
+                node.range(),
+            ));
         }
 
         None
@@ -193,14 +246,47 @@ impl PhpParser {
             });
         }
 
-        let token = Token::new(
+        let mut class_attribute = None;
+        if let Some(attributes_node) = node.child_by_field_name("attributes") {
+            let attribute_group = attributes_node.child(0)?;
+            class_attribute = self.parse_class_attribute(attribute_group.named_child(0)?);
+        } else if let Some(comment_node) = node.prev_named_sibling() {
+            if comment_node.kind() == "comment" {
+                let text = self.get_node_text(&comment_node);
+
+                let re = Regex::new(r#"\*\s*@(?<type>.+)\("#).unwrap();
+                let mut plugin_type: Option<DrupalPluginType> = None;
+                if let Some(captures) = re.captures(text) {
+                    if let Some(str) = captures.name("type") {
+                        plugin_type = DrupalPluginType::try_from(str.as_str()).ok();
+                    }
+                }
+
+                let re = Regex::new(r#"id\s*=\s*"(?<id>[^"]+)""#).unwrap();
+                let mut plugin_id: Option<String> = None;
+                if let Some(captures) = re.captures(text) {
+                    if let Some(str) = captures.name("id") {
+                        plugin_id = Some(str.as_str().to_string());
+                    }
+                }
+
+                if let (Some(plugin_type), Some(plugin_id)) = (plugin_type, plugin_id) {
+                    class_attribute = Some(ClassAttribute::Plugin(DrupalPlugin {
+                        plugin_type,
+                        plugin_id,
+                    }));
+                };
+            }
+        }
+
+        Some(Token::new(
             TokenData::PhpClassDefinition(PhpClass {
                 name: self.get_class_name_from_node(node)?,
+                attribute: class_attribute,
                 methods,
             }),
             node.range(),
-        );
-        Some(token)
+        ))
     }
 
     fn parse_method_declaration(&self, node: Node) -> Option<Token> {
@@ -214,10 +300,39 @@ impl PhpParser {
         Some(Token::new(
             TokenData::PhpMethodDefinition(PhpMethod {
                 name: self.get_node_text(&name_node).to_string(),
-                class_name: self.get_class_name_from_node(class_node)?,
+                class_name: self.get_class_name_from_node(class_node),
+                service_name: None,
             }),
             node.range(),
         ))
+    }
+
+    fn parse_class_attribute(&self, node: Node) -> Option<ClassAttribute> {
+        if node.kind() != "attribute" {
+            return None;
+        }
+
+        let mut plugin_id = String::default();
+
+        // TODO: Look into improving this if we want to extract more than plugin id.
+        let parameters_node = node.child_by_field_name("parameters")?;
+        for argument in parameters_node.named_children(&mut parameters_node.walk()) {
+            let argument_name = argument.child_by_field_name("name")?;
+            if self.get_node_text(&argument_name) == "id" {
+                plugin_id = self
+                    .get_node_text(&argument.named_child(1)?)
+                    .trim_matches(|c| c == '"' || c == '\'')
+                    .to_string()
+            }
+        }
+
+        match DrupalPluginType::try_from(self.get_node_text(&node.child(0)?)) {
+            Ok(plugin_type) => Some(ClassAttribute::Plugin(DrupalPlugin {
+                plugin_id,
+                plugin_type,
+            })),
+            Err(_) => None,
+        }
     }
 
     fn get_class_name_from_node(&self, node: Node) -> Option<PhpClassName> {
