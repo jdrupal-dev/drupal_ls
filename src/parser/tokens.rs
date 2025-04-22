@@ -156,6 +156,8 @@ pub enum DrupalPluginType {
     QueueWorker,
     FieldType,
     DataType,
+    FormElement,
+    RenderElement,
 }
 
 impl TryFrom<&str> for DrupalPluginType {
@@ -167,6 +169,8 @@ impl TryFrom<&str> for DrupalPluginType {
             "QueueWorker" => Ok(DrupalPluginType::QueueWorker),
             "FieldType" => Ok(DrupalPluginType::FieldType),
             "DataType" => Ok(DrupalPluginType::DataType),
+            "FormElement" => Ok(DrupalPluginType::FormElement),
+            "RenderElement" => Ok(DrupalPluginType::RenderElement),
             _ => Err("Unable to convert string to DrupalPluginType"),
         }
     }
@@ -182,6 +186,7 @@ impl fmt::Display for DrupalPluginType {
 pub struct DrupalPlugin {
     pub plugin_type: DrupalPluginType,
     pub plugin_id: String,
+    pub usage_example: Option<String>,
 }
 
 #[derive(Debug)]

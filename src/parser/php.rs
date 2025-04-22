@@ -274,8 +274,23 @@ impl PhpParser {
                     class_attribute = Some(ClassAttribute::Plugin(DrupalPlugin {
                         plugin_type,
                         plugin_id,
+                        usage_example: None,
                     }));
                 };
+            }
+        }
+
+        // Try to get an usage example for snippet generation.
+        if let Some(attribute) = &mut class_attribute {
+            match attribute {
+                ClassAttribute::Plugin(ref mut drupal_plugin) => {
+                    if let Some(prev_sibling) = node.prev_named_sibling() {
+                        if prev_sibling.kind() == "comment" {
+                            drupal_plugin.usage_example =
+                                self.extract_usage_example_from_comment(&prev_sibling);
+                        }
+                    }
+                }
             }
         }
 
@@ -317,6 +332,16 @@ impl PhpParser {
         // TODO: Look into improving this if we want to extract more than plugin id.
         let parameters_node = node.child_by_field_name("parameters")?;
         for argument in parameters_node.named_children(&mut parameters_node.walk()) {
+            // In the case of f.e `#[FormElement('date')]` there is no `id` field.
+            if self.get_node_text(&argument).starts_with("'")
+                && self.get_node_text(&argument).ends_with("'")
+            {
+                plugin_id = self
+                    .get_node_text(&argument)
+                    .trim_matches(|c| c == '"' || c == '\'')
+                    .to_string();
+                break;
+            }
             let argument_name = argument.child_by_field_name("name")?;
             if self.get_node_text(&argument_name) == "id" {
                 plugin_id = self
@@ -330,6 +355,7 @@ impl PhpParser {
             Ok(plugin_type) => Some(ClassAttribute::Plugin(DrupalPlugin {
                 plugin_id,
                 plugin_type,
+                usage_example: None,
             })),
             Err(_) => None,
         }
@@ -359,5 +385,32 @@ impl PhpParser {
 
     fn get_node_text(&self, node: &Node) -> &str {
         node.utf8_text(self.source.as_bytes()).unwrap_or("")
+    }
+
+    /// Helper function to extract usage example from the preceding comment
+    fn extract_usage_example_from_comment(&self, comment_node: &Node) -> Option<String> {
+        let comment_text = self.get_node_text(comment_node);
+        let start_tag = "@code";
+        let end_tag = "@endcode";
+
+        if let Some(start_index) = comment_text.find(start_tag) {
+            if let Some(end_index) = comment_text.find(end_tag) {
+                if end_index > start_index {
+                    let code_start = start_index + start_tag.len();
+                    let example = comment_text[code_start..end_index].trim();
+                    let cleaned_example = example
+                        .lines()
+                        .map(|line| line.trim_start().strip_prefix("* ").unwrap_or(line))
+                        .collect::<Vec<&str>>();
+
+                    let result = &cleaned_example[..cleaned_example.len() - 1]
+                        .join("\n")
+                        .trim()
+                        .to_string();
+                    return Some(result.to_string());
+                }
+            }
+        }
+        None
     }
 }

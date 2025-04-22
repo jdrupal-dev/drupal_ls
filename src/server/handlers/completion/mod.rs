@@ -10,7 +10,7 @@ use regex::Regex;
 
 use crate::document_store::DOCUMENT_STORE;
 use crate::documentation::get_documentation_for_token;
-use crate::parser::tokens::{ClassAttribute, Token, TokenData};
+use crate::parser::tokens::{ClassAttribute, DrupalPluginType, Token, TokenData};
 use crate::server::handle_request::get_response_error;
 
 pub fn handle_text_document_completion(request: Request) -> Option<Response> {
@@ -326,10 +326,9 @@ pub fn handle_text_document_completion(request: Request) -> Option<Response> {
 }
 
 fn get_global_snippets() -> Vec<CompletionItem> {
-    let mut snippets = HashMap::new();
-
+    let mut snippets: HashMap<String, String> = HashMap::new();
     snippets.insert(
-        "batch",
+        "batch".to_string(),
         r#"
 \$storage = \\Drupal::entityTypeManager()->getStorage('$0');
 if (!isset(\$sandbox['ids'])) {
@@ -347,58 +346,75 @@ foreach (\$storage->loadMultiple(\$ids) as \$entity) {
 
 if (\$sandbox['total'] > 0) {
   \$sandbox['#finished'] = (\$sandbox['total'] - count(\$sandbox['ids'])) / \$sandbox['total'];
-}"#,
+}"#
+        .to_string(),
     );
     snippets.insert(
-        "ihdoc",
+        "ihdoc".to_string(),
         r#"
 /**
  * {@inheritdoc}
- */"#,
+ */"#
+        .to_string(),
     );
     snippets.insert(
-        "ensure-instanceof",
-        "if (!($1 instanceof $2)) {\n  return$0;\n}",
+        "ensure-instanceof".to_string(),
+        "if (!($1 instanceof $2)) {\n  return$0;\n}".to_string(),
     );
     snippets.insert(
-        "entity-storage",
-        "\\$storage = \\$this->entityTypeManager->getStorage('$0');",
+        "entity-storage".to_string(),
+        "\\$storage = \\$this->entityTypeManager->getStorage('$0');".to_string(),
     );
     snippets.insert(
-        "entity-load",
-        "\\$$1 = \\$this->entityTypeManager->getStorage('$1')->load($0);",
+        "entity-load".to_string(),
+        "\\$$1 = \\$this->entityTypeManager->getStorage('$1')->load($0);".to_string(),
     );
     snippets.insert(
-        "entity-query",
+        "entity-query".to_string(),
         r#"
 \$ids = \$this->entityTypeManager->getStorage('$1')->getQuery()
   ->accessCheck(${TRUE})
   $0
-  ->execute()"#,
+  ->execute()"#
+            .to_string(),
     );
-    snippets.insert("type", "'#type' => '$0',");
-    snippets.insert("title", "'#title' => \\$this->t('$0'),");
-    snippets.insert("description", "'#description' => \\$this->t('$0'),");
-    snippets.insert("attributes", "'#attributes' => [$0],");
+    snippets.insert("type".to_string(), "'#type' => '$0',".to_string());
     snippets.insert(
-        "attributes-class",
-        "'#attributes' => [\n  'class' => ['$0'],\n],",
+        "title".to_string(),
+        "'#title' => \\$this->t('$0'),".to_string(),
     );
-    snippets.insert("attributes-id", "'#attributes' => [\n  'id' => '$0',\n],");
     snippets.insert(
-        "type_html_tag",
+        "description".to_string(),
+        "'#description' => \\$this->t('$0'),".to_string(),
+    );
+    snippets.insert(
+        "attributes".to_string(),
+        "'#attributes' => [$0],".to_string(),
+    );
+    snippets.insert(
+        "attributes-class".to_string(),
+        "'#attributes' => [\n  'class' => ['$0'],\n],".to_string(),
+    );
+    snippets.insert(
+        "attributes-id".to_string(),
+        "'#attributes' => [\n  'id' => '$0',\n],".to_string(),
+    );
+    snippets.insert(
+        "type_html_tag".to_string(),
         r#"'#type' => 'html_tag',
 '#tag' => '$1',
-'#value' => $0,"#,
+'#value' => $0,"#
+            .to_string(),
     );
     snippets.insert(
-        "type_details",
+        "type_details".to_string(),
         r#"'#type' => 'details',
 '#open' => TRUE,
-'#title' => \$this->t('$0'),"#,
+'#title' => \$this->t('$0'),"#
+            .to_string(),
     );
     snippets.insert(
-        "create",
+        "create".to_string(),
         r#"/**
  * {@inheritdoc}
  */
@@ -406,10 +422,11 @@ public static function create(ContainerInterface \$container) {
   return new static(
     \$container->get('$0'),
   );
-}"#,
+}"#
+        .to_string(),
     );
     snippets.insert(
-        "create-plugin",
+        "create-plugin".to_string(),
         r#"/**
  * {@inheritdoc}
  */
@@ -420,9 +437,42 @@ public static function create(ContainerInterface \$container, array \$configurat
     \$plugin_definition,
     \$container->get('$0'),
   );
-}"#,
+}"#.to_string(),
     );
 
+    // Create pre-generated snippets.
+    DOCUMENT_STORE
+        .lock()
+        .unwrap()
+        .get_documents()
+        .values()
+        .for_each(|document| {
+            document.tokens.iter().for_each(|token| match &token.data {
+                TokenData::PhpClassDefinition(class_definition) => {
+                    if let Some(attribute) = &class_definition.attribute {
+                        match attribute {
+                            ClassAttribute::Plugin(plugin) => match plugin.plugin_type {
+                                DrupalPluginType::RenderElement | DrupalPluginType::FormElement => {
+                                    if let Some(usage_example) = &plugin.usage_example {
+                                        let mut snippet_key = "render";
+                                        if plugin.plugin_type == DrupalPluginType::FormElement {
+                                            snippet_key = "form";
+                                        }
+                                        snippets.insert(
+                                            format!("{}-{}", snippet_key, plugin.plugin_id)
+                                                .to_string(),
+                                            usage_example.replace("$", "\\$"),
+                                        );
+                                    }
+                                }
+                                _ => {}
+                            },
+                        }
+                    }
+                }
+                _ => {}
+            })
+        });
     snippets
         .iter()
         .map(|(name, snippet)| CompletionItem {
