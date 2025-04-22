@@ -446,33 +446,35 @@ public static function create(ContainerInterface \$container, array \$configurat
         .unwrap()
         .get_documents()
         .values()
-        .for_each(|document| {
-            document.tokens.iter().for_each(|token| match &token.data {
-                TokenData::PhpClassDefinition(class_definition) => {
-                    if let Some(attribute) = &class_definition.attribute {
-                        match attribute {
-                            ClassAttribute::Plugin(plugin) => match plugin.plugin_type {
-                                DrupalPluginType::RenderElement | DrupalPluginType::FormElement => {
-                                    if let Some(usage_example) = &plugin.usage_example {
-                                        let mut snippet_key = "render";
-                                        if plugin.plugin_type == DrupalPluginType::FormElement {
-                                            snippet_key = "form";
-                                        }
-                                        snippets.insert(
-                                            format!("{}-{}", snippet_key, plugin.plugin_id)
-                                                .to_string(),
-                                            usage_example.replace("$", "\\$"),
-                                        );
-                                    }
-                                }
-                                _ => {}
-                            },
-                        }
-                    }
-                }
-                _ => {}
+        .flat_map(|document| document.tokens.iter())
+        .filter_map(|token| match &token.data {
+            TokenData::PhpClassDefinition(class_def) => match &class_def.attribute {
+                Some(ClassAttribute::Plugin(plugin)) => Some(plugin),
+                _ => None,
+            },
+            _ => None,
+        })
+        .filter_map(|plugin| {
+            let snippet_key_prefix = match plugin.plugin_type {
+                DrupalPluginType::RenderElement => Some("render"),
+                DrupalPluginType::FormElement => Some("form"),
+                _ => None,
+            };
+
+            snippet_key_prefix.and_then(|prefix| {
+                plugin
+                    .usage_example
+                    .as_ref()
+                    .map(|usage_example| (prefix, &plugin.plugin_id, usage_example))
             })
+        })
+        .for_each(|(snippet_key_prefix, plugin_id, usage_example)| {
+            snippets.insert(
+                format!("{}-{}", snippet_key_prefix, plugin_id),
+                usage_example.replace("$", "\\$"),
+            );
         });
+
     snippets
         .iter()
         .map(|(name, snippet)| CompletionItem {
