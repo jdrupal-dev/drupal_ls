@@ -377,6 +377,10 @@ impl PhpParser {
 
     /// Helper function to extract usage example from the preceding comment
     fn extract_usage_example_from_comment(&self, comment_node: &Node) -> Option<String> {
+        if comment_node.kind() != "comment" {
+            return None;
+        }
+
         let comment_text = self.get_node_text(comment_node);
         let start_tag = "@code";
         let end_tag = "@endcode";
