@@ -326,8 +326,13 @@ pub fn handle_text_document_completion(request: Request) -> Option<Response> {
 }
 
 fn get_global_snippets() -> Vec<CompletionItem> {
-    let mut snippets = HashMap::new();
-    snippets.insert(
+    let mut snippets: HashMap<String, String> = HashMap::new();
+
+    let mut add_snippet = |key: &str, value: &str| {
+        snippets.insert(key.into(), value.into());
+    };
+
+    add_snippet(
         "batch",
         r#"
 \$storage = \\Drupal::entityTypeManager()->getStorage('$0');
@@ -348,26 +353,26 @@ if (\$sandbox['total'] > 0) {
   \$sandbox['#finished'] = (\$sandbox['total'] - count(\$sandbox['ids'])) / \$sandbox['total'];
 }"#,
     );
-    snippets.insert(
+    add_snippet(
         "ihdoc",
         r#"
 /**
  * {@inheritdoc}
  */"#,
     );
-    snippets.insert(
+    add_snippet(
         "ensure-instanceof",
         "if (!($1 instanceof $2)) {\n  return$0;\n}",
     );
-    snippets.insert(
+    add_snippet(
         "entity-storage",
         "\\$storage = \\$this->entityTypeManager->getStorage('$0');",
     );
-    snippets.insert(
+    add_snippet(
         "entity-load",
         "\\$$1 = \\$this->entityTypeManager->getStorage('$1')->load($0);",
     );
-    snippets.insert(
+    add_snippet(
         "entity-query",
         r#"
 \$ids = \$this->entityTypeManager->getStorage('$1')->getQuery()
@@ -375,28 +380,28 @@ if (\$sandbox['total'] > 0) {
   $0
   ->execute()"#,
     );
-    snippets.insert("type", "'#type' => '$0',");
-    snippets.insert("title", "'#title' => \\$this->t('$0'),");
-    snippets.insert("description", "'#description' => \\$this->t('$0'),");
-    snippets.insert("attributes", "'#attributes' => [$0],");
-    snippets.insert(
+    add_snippet("type", "'#type' => '$0',");
+    add_snippet("title", "'#title' => \\$this->t('$0'),");
+    add_snippet("description", "'#description' => \\$this->t('$0'),");
+    add_snippet("attributes", "'#attributes' => [$0],");
+    add_snippet(
         "attributes-class",
         "'#attributes' => [\n  'class' => ['$0'],\n],",
     );
-    snippets.insert("attributes-id", "'#attributes' => [\n  'id' => '$0',\n],");
-    snippets.insert(
+    add_snippet("attributes-id", "'#attributes' => [\n  'id' => '$0',\n],");
+    add_snippet(
         "type_html_tag",
         r#"'#type' => 'html_tag',
 '#tag' => '$1',
 '#value' => $0,"#,
     );
-    snippets.insert(
+    add_snippet(
         "type_details",
         r#"'#type' => 'details',
 '#open' => TRUE,
 '#title' => \$this->t('$0'),"#,
     );
-    snippets.insert(
+    add_snippet(
         "create",
         r#"/**
  * {@inheritdoc}
@@ -407,7 +412,7 @@ public static function create(ContainerInterface \$container) {
   );
 }"#,
     );
-    snippets.insert(
+    add_snippet(
         "create-plugin",
         r#"/**
  * {@inheritdoc}
@@ -451,20 +456,18 @@ public static function create(ContainerInterface \$container, array \$configurat
             })
         })
         .for_each(|(snippet_key_prefix, plugin_id, usage_example)| {
-            let key_string: String = format!("{}-{}", snippet_key_prefix, plugin_id);
-            let value_string: String = usage_example.replace("$", "\\$");
-
-            let key: &'static str = Box::leak(key_string.into_boxed_str());
-            let value: &'static str = Box::leak(value_string.into_boxed_str());
-            snippets.insert(key, value);
+            snippets.insert(
+                format!("{}-{}", snippet_key_prefix, plugin_id),
+                usage_example.replace("$", "\\$"),
+            );
         });
 
     snippets
         .iter()
         .map(|(name, snippet)| CompletionItem {
-            label: name.to_string(),
+            label: name.clone(),
             kind: Some(CompletionItemKind::SNIPPET),
-            insert_text: Some(snippet.to_string()),
+            insert_text: Some(snippet.clone()),
             insert_text_format: Some(InsertTextFormat::SNIPPET),
             deprecated: Some(false),
             ..CompletionItem::default()
