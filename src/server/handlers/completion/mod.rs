@@ -10,7 +10,7 @@ use regex::Regex;
 
 use crate::document_store::DOCUMENT_STORE;
 use crate::documentation::get_documentation_for_token;
-use crate::parser::tokens::{Token, TokenData};
+use crate::parser::tokens::{ClassAttribute, DrupalPluginType, Token, TokenData};
 use crate::server::handle_request::get_response_error;
 
 pub fn handle_text_document_completion(request: Request) -> Option<Response> {
@@ -44,8 +44,9 @@ pub fn handle_text_document_completion(request: Request) -> Option<Response> {
         token = document.get_token_under_cursor(position);
     }
 
-    let mut completion_items: Vec<CompletionItem> = get_global_snippets();
+    let (file_name, extension) = uri.split('/').last()?.split_once('.')?;
 
+    let mut completion_items: Vec<CompletionItem> = get_global_snippets();
     if let Some(token) = token {
         if let TokenData::DrupalRouteReference(_) = token.data {
             let re = Regex::new(r"(?<method>.*fromRoute\(')(?<name>[^']*)'(?<params>, \[.*\])?");
@@ -130,6 +131,10 @@ pub fn handle_text_document_completion(request: Request) -> Option<Response> {
                             }
                             completion_items.push(CompletionItem {
                                 label: route.name.clone(),
+                                label_details: Some(CompletionItemLabelDetails {
+                                    description: Some("Route".to_string()),
+                                    detail: None,
+                                }),
                                 kind: Some(CompletionItemKind::REFERENCE),
                                 documentation,
                                 text_edit,
@@ -155,6 +160,10 @@ pub fn handle_text_document_completion(request: Request) -> Option<Response> {
                             }
                             completion_items.push(CompletionItem {
                                 label: service.name.clone(),
+                                label_details: Some(CompletionItemLabelDetails {
+                                    description: Some("Service".to_string()),
+                                    detail: None,
+                                }),
                                 kind: Some(CompletionItemKind::REFERENCE),
                                 documentation,
                                 deprecated: Some(false),
@@ -163,6 +172,26 @@ pub fn handle_text_document_completion(request: Request) -> Option<Response> {
                         }
                     })
                 });
+        } else if let TokenData::PhpMethodReference(method) = token.data {
+            let store = DOCUMENT_STORE.lock().unwrap();
+            // TODO: Don't suggest private/protected methods.
+            if let Some((_, class_token)) = store.get_class_definition(&method.get_class(&store)?) {
+                if let TokenData::PhpClassDefinition(class) = &class_token.data {
+                    class.methods.keys().for_each(|method_name| {
+                        completion_items.push(CompletionItem {
+                            label: method_name.clone(),
+                            label_details: Some(CompletionItemLabelDetails {
+                                description: Some("Method".to_string()),
+                                detail: None,
+                            }),
+                            kind: Some(CompletionItemKind::REFERENCE),
+                            documentation: None,
+                            deprecated: Some(false),
+                            ..CompletionItem::default()
+                        });
+                    });
+                }
+            }
         } else if let TokenData::DrupalPermissionReference(_) = token.data {
             DOCUMENT_STORE
                 .lock()
@@ -180,6 +209,10 @@ pub fn handle_text_document_completion(request: Request) -> Option<Response> {
                             // label.
                             completion_items.push(CompletionItem {
                                 label: permission.name.clone(),
+                                label_details: Some(CompletionItemLabelDetails {
+                                    description: Some("Permission".to_string()),
+                                    detail: None,
+                                }),
                                 kind: Some(CompletionItemKind::REFERENCE),
                                 documentation,
                                 deprecated: Some(false),
@@ -188,11 +221,42 @@ pub fn handle_text_document_completion(request: Request) -> Option<Response> {
                         }
                     })
                 });
+        } else if let TokenData::DrupalPluginReference(plugin_reference) = token.data {
+            DOCUMENT_STORE
+                .lock()
+                .unwrap()
+                .get_documents()
+                .values()
+                .for_each(|document| {
+                    document.tokens.iter().for_each(|token| {
+                        if let TokenData::PhpClassDefinition(class) = &token.data {
+                            if let Some(ClassAttribute::Plugin(plugin)) = &class.attribute {
+                                if plugin_reference.plugin_type == plugin.plugin_type {
+                                    let mut documentation = None;
+                                    if let Some(documentation_string) =
+                                        get_documentation_for_token(token)
+                                    {
+                                        documentation =
+                                            Some(Documentation::String(documentation_string));
+                                    }
+                                    completion_items.push(CompletionItem {
+                                        label: plugin.plugin_id.clone(),
+                                        label_details: Some(CompletionItemLabelDetails {
+                                            description: Some(plugin.plugin_type.to_string()),
+                                            detail: None,
+                                        }),
+                                        kind: Some(CompletionItemKind::REFERENCE),
+                                        documentation,
+                                        deprecated: Some(false),
+                                        ..CompletionItem::default()
+                                    });
+                                }
+                            }
+                        }
+                    })
+                });
         }
-    }
-
-    let (file_name, extension) = uri.split('/').last()?.split_once('.')?;
-    if extension == "module" || extension == "theme" {
+    } else if extension == "module" || extension == "theme" {
         DOCUMENT_STORE
             .lock()
             .unwrap()
@@ -262,9 +326,13 @@ pub fn handle_text_document_completion(request: Request) -> Option<Response> {
 }
 
 fn get_global_snippets() -> Vec<CompletionItem> {
-    let mut snippets = HashMap::new();
+    let mut snippets: HashMap<String, String> = HashMap::new();
 
-    snippets.insert(
+    let mut add_snippet = |key: &str, value: &str| {
+        snippets.insert(key.into(), value.into());
+    };
+
+    add_snippet(
         "batch",
         r#"
 \$storage = \\Drupal::entityTypeManager()->getStorage('$0');
@@ -285,26 +353,26 @@ if (\$sandbox['total'] > 0) {
   \$sandbox['#finished'] = (\$sandbox['total'] - count(\$sandbox['ids'])) / \$sandbox['total'];
 }"#,
     );
-    snippets.insert(
+    add_snippet(
         "ihdoc",
         r#"
 /**
  * {@inheritdoc}
  */"#,
     );
-    snippets.insert(
+    add_snippet(
         "ensure-instanceof",
         "if (!($1 instanceof $2)) {\n  return$0;\n}",
     );
-    snippets.insert(
+    add_snippet(
         "entity-storage",
         "\\$storage = \\$this->entityTypeManager->getStorage('$0');",
     );
-    snippets.insert(
+    add_snippet(
         "entity-load",
         "\\$$1 = \\$this->entityTypeManager->getStorage('$1')->load($0);",
     );
-    snippets.insert(
+    add_snippet(
         "entity-query",
         r#"
 \$ids = \$this->entityTypeManager->getStorage('$1')->getQuery()
@@ -312,28 +380,28 @@ if (\$sandbox['total'] > 0) {
   $0
   ->execute()"#,
     );
-    snippets.insert("type", "'#type' => '$0',");
-    snippets.insert("title", "'#title' => \\$this->t('$0'),");
-    snippets.insert("description", "'#description' => \\$this->t('$0'),");
-    snippets.insert("attributes", "'#attributes' => [$0],");
-    snippets.insert(
+    add_snippet("type", "'#type' => '$0',");
+    add_snippet("title", "'#title' => \\$this->t('$0'),");
+    add_snippet("description", "'#description' => \\$this->t('$0'),");
+    add_snippet("attributes", "'#attributes' => [$0],");
+    add_snippet(
         "attributes-class",
         "'#attributes' => [\n  'class' => ['$0'],\n],",
     );
-    snippets.insert("attributes-id", "'#attributes' => [\n  'id' => '$0',\n],");
-    snippets.insert(
+    add_snippet("attributes-id", "'#attributes' => [\n  'id' => '$0',\n],");
+    add_snippet(
         "type_html_tag",
         r#"'#type' => 'html_tag',
 '#tag' => '$1',
 '#value' => $0,"#,
     );
-    snippets.insert(
+    add_snippet(
         "type_details",
         r#"'#type' => 'details',
 '#open' => TRUE,
 '#title' => \$this->t('$0'),"#,
     );
-    snippets.insert(
+    add_snippet(
         "create",
         r#"/**
  * {@inheritdoc}
@@ -344,7 +412,7 @@ public static function create(ContainerInterface \$container) {
   );
 }"#,
     );
-    snippets.insert(
+    add_snippet(
         "create-plugin",
         r#"/**
  * {@inheritdoc}
@@ -359,12 +427,47 @@ public static function create(ContainerInterface \$container, array \$configurat
 }"#,
     );
 
+    // Create pre-generated snippets.
+    DOCUMENT_STORE
+        .lock()
+        .unwrap()
+        .get_documents()
+        .values()
+        .flat_map(|document| document.tokens.iter())
+        .filter_map(|token| match &token.data {
+            TokenData::PhpClassDefinition(class_def) => match &class_def.attribute {
+                Some(ClassAttribute::Plugin(plugin)) => Some(plugin),
+                _ => None,
+            },
+            _ => None,
+        })
+        .filter_map(|plugin| {
+            let snippet_key_prefix = match plugin.plugin_type {
+                DrupalPluginType::RenderElement => Some("render"),
+                DrupalPluginType::FormElement => Some("form"),
+                _ => None,
+            };
+
+            snippet_key_prefix.and_then(|prefix| {
+                plugin
+                    .usage_example
+                    .as_ref()
+                    .map(|usage_example| (prefix, &plugin.plugin_id, usage_example))
+            })
+        })
+        .for_each(|(snippet_key_prefix, plugin_id, usage_example)| {
+            snippets.insert(
+                format!("{}-{}", snippet_key_prefix, plugin_id),
+                usage_example.replace("$", "\\$"),
+            );
+        });
+
     snippets
         .iter()
         .map(|(name, snippet)| CompletionItem {
-            label: name.to_string(),
+            label: name.clone(),
             kind: Some(CompletionItemKind::SNIPPET),
-            insert_text: Some(snippet.to_string()),
+            insert_text: Some(snippet.clone()),
             insert_text_format: Some(InsertTextFormat::SNIPPET),
             deprecated: Some(false),
             ..CompletionItem::default()

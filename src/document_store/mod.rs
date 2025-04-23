@@ -11,7 +11,9 @@ use lsp_types::TextDocumentContentChangeEvent;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use url::Url;
 
-use crate::parser::tokens::{PhpClassName, PhpMethod, Token, TokenData};
+use crate::parser::tokens::{
+    ClassAttribute, DrupalPluginReference, PhpClassName, PhpMethod, Token, TokenData,
+};
 
 use self::document::{Document, FileType};
 
@@ -37,7 +39,7 @@ pub fn initialize_document_store(root_dir: String) {
     override_builder
         .add("!**/core/lib/**/*Interface.php")
         .unwrap();
-    override_builder.add("!**/Plugin/**/*.php").unwrap();
+    override_builder.add("!**/tests/**/*.php").unwrap();
     override_builder.add("!vendor").unwrap();
     override_builder.add("!node_modules").unwrap();
     override_builder.add("!libraries").unwrap();
@@ -195,7 +197,7 @@ impl DocumentStore {
     }
 
     pub fn get_method_definition(&self, method: &PhpMethod) -> Option<(&Document, &Token)> {
-        if let Some((document, token)) = self.get_class_definition(&method.class_name) {
+        if let Some((document, token)) = self.get_class_definition(&method.get_class(self)?) {
             if let TokenData::PhpClassDefinition(class) = &token.data {
                 let token = class.methods.get(&method.name)?;
                 return Some((document, token));
@@ -222,7 +224,6 @@ impl DocumentStore {
 
     pub fn get_permission_definition(&self, permission_name: &str) -> Option<(&Document, &Token)> {
         let files = self.get_documents_by_file_type(FileType::Yaml);
-        log::info!("{}", permission_name);
 
         files.iter().find_map(|&document| {
             Some((
@@ -230,6 +231,28 @@ impl DocumentStore {
                 document.tokens.iter().find(|token| {
                     if let TokenData::DrupalPermissionDefinition(permission) = &token.data {
                         return permission.name == permission_name;
+                    }
+                    false
+                })?,
+            ))
+        })
+    }
+
+    pub fn get_plugin_definition(
+        &self,
+        plugin_reference: &DrupalPluginReference,
+    ) -> Option<(&Document, &Token)> {
+        let files = self.get_documents_by_file_type(FileType::Php);
+
+        files.iter().find_map(|&document| {
+            Some((
+                document,
+                document.tokens.iter().find(|token| {
+                    if let TokenData::PhpClassDefinition(class) = &token.data {
+                        if let Some(ClassAttribute::Plugin(plugin)) = &class.attribute {
+                            return plugin.plugin_type == plugin_reference.plugin_type
+                                && plugin.plugin_id == plugin_reference.plugin_id;
+                        }
                     }
                     false
                 })?,

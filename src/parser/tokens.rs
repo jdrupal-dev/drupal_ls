@@ -1,6 +1,8 @@
 use regex::Regex;
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt};
 use tree_sitter::Range;
+
+use crate::document_store::DocumentStore;
 
 #[derive(Debug)]
 pub struct Token {
@@ -28,17 +30,18 @@ pub enum TokenData {
     DrupalHookDefinition(DrupalHook),
     DrupalPermissionDefinition(DrupalPermission),
     DrupalPermissionReference(String),
+    DrupalPluginReference(DrupalPluginReference),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct PhpClassName {
     value: String,
 }
 
-impl std::fmt::Display for PhpClassName {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    write!(f, "{}", self.value)
-  }
+impl fmt::Display for PhpClassName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.value)
+    }
 }
 
 impl From<&str> for PhpClassName {
@@ -52,15 +55,37 @@ impl From<&str> for PhpClassName {
 }
 
 #[derive(Debug)]
+pub enum ClassAttribute {
+    Plugin(DrupalPlugin),
+}
+
+#[derive(Debug)]
 pub struct PhpClass {
     pub name: PhpClassName,
+    pub attribute: Option<ClassAttribute>,
     pub methods: HashMap<String, Box<Token>>,
 }
 
 #[derive(Debug)]
 pub struct PhpMethod {
     pub name: String,
-    pub class_name: PhpClassName,
+    pub class_name: Option<PhpClassName>,
+    pub service_name: Option<String>,
+}
+
+impl PhpMethod {
+    pub fn get_class(&self, store: &DocumentStore) -> Option<PhpClassName> {
+        if let Some(class_name) = &self.class_name {
+            return Some(class_name.clone());
+        } else if let Some(service_name) = &self.service_name {
+            if let Some((_, token)) = store.get_service_definition(service_name) {
+                if let TokenData::DrupalServiceDefinition(service) = &token.data {
+                    return Some(service.class.clone());
+                }
+            }
+        }
+        None
+    }
 }
 
 impl TryFrom<&str> for PhpMethod {
@@ -70,7 +95,8 @@ impl TryFrom<&str> for PhpMethod {
         if let Some((class, method)) = value.trim_matches(['\'', '\\']).split_once("::") {
             return Ok(Self {
                 name: method.to_string(),
-                class_name: PhpClassName::from(class),
+                class_name: Some(PhpClassName::from(class)),
+                service_name: None,
             });
         }
 
@@ -122,6 +148,51 @@ pub struct DrupalHook {
 pub struct DrupalPermission {
     pub name: String,
     pub title: String,
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum DrupalPluginType {
+    EntityType,
+    QueueWorker,
+    FieldType,
+    DataType,
+    FormElement,
+    RenderElement,
+}
+
+impl TryFrom<&str> for DrupalPluginType {
+    type Error = &'static str;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "ContentEntityType" | "ConfigEntityType" => Ok(DrupalPluginType::EntityType),
+            "QueueWorker" => Ok(DrupalPluginType::QueueWorker),
+            "FieldType" => Ok(DrupalPluginType::FieldType),
+            "DataType" => Ok(DrupalPluginType::DataType),
+            "FormElement" => Ok(DrupalPluginType::FormElement),
+            "RenderElement" => Ok(DrupalPluginType::RenderElement),
+            _ => Err("Unable to convert string to DrupalPluginType"),
+        }
+    }
+}
+
+impl fmt::Display for DrupalPluginType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+#[derive(Debug)]
+pub struct DrupalPlugin {
+    pub plugin_type: DrupalPluginType,
+    pub plugin_id: String,
+    pub usage_example: Option<String>,
+}
+
+#[derive(Debug)]
+pub struct DrupalPluginReference {
+    pub plugin_type: DrupalPluginType,
+    pub plugin_id: String,
 }
 
 #[cfg(test)]
