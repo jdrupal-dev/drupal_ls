@@ -274,23 +274,9 @@ impl PhpParser {
                     class_attribute = Some(ClassAttribute::Plugin(DrupalPlugin {
                         plugin_type,
                         plugin_id,
-                        usage_example: None,
+                        usage_example: self.extract_usage_example_from_comment(&comment_node),
                     }));
                 };
-            }
-        }
-
-        // Try to get an usage example for snippet generation.
-        if let Some(attribute) = &mut class_attribute {
-            match attribute {
-                ClassAttribute::Plugin(ref mut drupal_plugin) => {
-                    if let Some(prev_sibling) = node.prev_named_sibling() {
-                        if prev_sibling.kind() == "comment" {
-                            drupal_plugin.usage_example =
-                                self.extract_usage_example_from_comment(&prev_sibling);
-                        }
-                    }
-                }
             }
         }
 
@@ -355,7 +341,9 @@ impl PhpParser {
             Ok(plugin_type) => Some(ClassAttribute::Plugin(DrupalPlugin {
                 plugin_id,
                 plugin_type,
-                usage_example: None,
+                usage_example: self.extract_usage_example_from_comment(
+                    &node.parent()?.parent()?.parent()?.prev_named_sibling()?,
+                ),
             })),
             Err(_) => None,
         }
