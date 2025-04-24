@@ -2,6 +2,7 @@ mod handle_notification;
 mod handle_request;
 mod handlers;
 
+use std::net::{Ipv4Addr, SocketAddrV4};
 use std::vec;
 
 use anyhow::Result;
@@ -12,6 +13,7 @@ use lsp_types::{
 };
 
 use crate::document_store::initialize_document_store;
+use crate::opts::DrupalLspConfig;
 use crate::utils::uri_to_url;
 
 use self::handle_notification::handle_notification;
@@ -32,13 +34,19 @@ async fn main_loop(connection: Connection) {
     }
 }
 
-pub async fn start_lsp() -> Result<()> {
+pub async fn start_lsp(config: DrupalLspConfig) -> Result<()> {
     // Note that we must have our logging only write out to stderr.
     log::info!("Starting Drupal Language server");
 
-    // Create the transport. Includes the stdio (stdin and stdout) versions but this could
-    // also be implemented to use sockets or HTTP.
-    let (connection, io_threads) = Connection::stdio();
+    let (connection, io_threads);
+    if let Some(socket_port) = config.socket.or(config.port) {
+        (connection, io_threads) =
+            Connection::connect(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), socket_port))?;
+    } else if config.pipe.is_some() {
+        panic!("Unsupported transport type 'pipe'.");
+    } else {
+        (connection, io_threads) = Connection::stdio();
+    }
 
     // Run the server and wait for the two threads to end (typically by trigger LSP Exit event).
     let server_capabilities = serde_json::to_value(&ServerCapabilities {

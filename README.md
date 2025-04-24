@@ -11,6 +11,7 @@ WIP!
 - Route controller/form
 - Hook references
 - Permission references
+- Plugin references
 ### Go to definition
 - Service references
 - Service class
@@ -18,12 +19,23 @@ WIP!
 - Route controller/form
 - Hook references
 - Permission references
+- Plugin references
 ### Completion
 - Services
 - Routes
-- Hook snippets
-- General snippets
+- Snippets
+    - A few QoL improving snippets.
+    - Hooks
+    - form-[ELEMENT]
+    - render-[ELEMENT]
 - Permissions
+- Plugin IDs (limited to:)
+    - EntityType
+    - QueueWorker
+    - FieldType
+    - DataType
+    - FormElement
+    - RenderElement
 
 ## Installation
 
@@ -59,7 +71,6 @@ WIP!
 
 ## Roadmap
 ### Completion
-- [ ] Autocomplete plugin IDs (eg. queue workers, blocks, fields, migrate source/process/destination).
 - [ ] Autocomplete #theme functions.
 
 ### Code actions

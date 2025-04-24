@@ -37,7 +37,7 @@ async fn main() -> Result<()> {
     builder.init();
     log::trace!("log options: {:?}", config);
 
-    match start_lsp().await {
+    match start_lsp(config).await {
         Ok(_) => (),
         Err(error) => log::error!("An unexpected error happened: {:?}", error),
     };
