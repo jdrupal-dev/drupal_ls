@@ -228,6 +228,7 @@ mod tests {
             PhpMethod::try_from("Drupal\\test\\TestClass::myMethod")
                 .unwrap()
                 .class_name
+                .unwrap()
                 .to_string()
         );
         assert_eq!(
@@ -241,6 +242,7 @@ mod tests {
             PhpMethod::try_from("'\\Drupal\\test\\TestClass::myMethod'")
                 .unwrap()
                 .class_name
+                .unwrap()
                 .to_string()
         );
         assert!(PhpMethod::try_from("invalid class").is_err());
