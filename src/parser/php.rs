@@ -375,7 +375,7 @@ impl PhpParser {
         node.utf8_text(self.source.as_bytes()).unwrap_or("")
     }
 
-    /// Helper function to extract usage example from the preceding comment
+    /// Helper function to extract usage example from the preceding comment.
     fn extract_usage_example_from_comment(&self, comment_node: &Node) -> Option<String> {
         if comment_node.kind() != "comment" {
             return None;
@@ -385,22 +385,26 @@ impl PhpParser {
         let start_tag = "@code";
         let end_tag = "@endcode";
 
-        if let Some(start_index) = comment_text.find(start_tag) {
-            if let Some(end_index) = comment_text.find(end_tag) {
-                if end_index > start_index {
-                    let code_start = start_index + start_tag.len();
-                    let example = comment_text[code_start..end_index].trim();
-                    let cleaned_example = example
-                        .lines()
-                        .map(|line| line.trim_start().strip_prefix("* ").unwrap_or(line))
-                        .collect::<Vec<&str>>();
+        if let (Some(start_index), Some(end_index)) =
+            (comment_text.find(start_tag), comment_text.find(end_tag))
+        {
+            if end_index > start_index {
+                let code_start = start_index + start_tag.len();
+                let example = comment_text[code_start..end_index].trim();
 
-                    let result = &cleaned_example[..cleaned_example.len() - 1]
+                // Regex to replace "* " or "*" from the beginning of a line.
+                let re = Regex::new(r"^\s*\*\s?").unwrap();
+                let cleaned_example = example
+                    .lines()
+                    .map(|line| re.replace(line, "").to_string())
+                    .collect::<Vec<String>>();
+
+                return Some(
+                    cleaned_example[..cleaned_example.len() - 1]
                         .join("\n")
                         .trim()
-                        .to_string();
-                    return Some(result.to_string());
-                }
+                        .to_string(),
+                );
             }
         }
         None
