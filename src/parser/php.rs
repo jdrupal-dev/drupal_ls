@@ -392,7 +392,16 @@ impl PhpParser {
                     let example = comment_text[code_start..end_index].trim();
                     let cleaned_example = example
                         .lines()
-                        .map(|line| line.trim_start().strip_prefix("* ").unwrap_or(line))
+                        .map(|line| {
+                            let trimmed = line.trim_start();
+                            if let Some(stripped) = trimmed.strip_prefix("* ") {
+                                stripped
+                            } else if let Some(stripped) = trimmed.strip_prefix("*") {
+                                stripped
+                            } else {
+                                trimmed
+                            }
+                        })
                         .collect::<Vec<&str>>();
 
                     let result = &cleaned_example[..cleaned_example.len() - 1]
