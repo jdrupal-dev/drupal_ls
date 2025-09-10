@@ -1,8 +1,6 @@
 # Drupal LS
 The missing language server for Drupal.
 
-WIP!
-
 ## Features
 ### Hover
 - Service references
