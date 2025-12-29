@@ -34,6 +34,8 @@ The missing language server for Drupal.
     - DataType
     - FormElement
     - RenderElement
+### Code actions
+- Add translation placeholders to `t()` functions.
 
 ## Installation
 
@@ -73,4 +75,3 @@ The missing language server for Drupal.
 
 ### Code actions
 - [ ] Generate __construct doc block.
-- [ ] Generate t function placeholder array.

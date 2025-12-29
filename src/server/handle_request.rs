@@ -1,6 +1,7 @@
 use lsp_server::{ErrorCode, Request, RequestId, Response, ResponseError};
 
 use super::handlers::completion::handle_text_document_completion;
+use super::handlers::code_action::handle_text_document_code_action;
 use super::handlers::definition::handle_text_document_definition;
 use super::handlers::hover::handle_text_document_hover;
 
@@ -10,6 +11,7 @@ pub fn handle_request(request: Request) -> Response {
     let request_id = request.id.clone();
     let response = match request.method.as_str() {
         "textDocument/hover" => handle_text_document_hover(request),
+        "textDocument/codeAction" => handle_text_document_code_action(request),
         "textDocument/definition" => handle_text_document_definition(request),
         "textDocument/completion" => handle_text_document_completion(request),
         "shutdown" => None,

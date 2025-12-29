@@ -31,6 +31,7 @@ pub enum TokenData {
     DrupalPermissionDefinition(DrupalPermission),
     DrupalPermissionReference(String),
     DrupalPluginReference(DrupalPluginReference),
+    DrupalTranslationString(DrupalTranslationString),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -193,6 +194,12 @@ pub struct DrupalPlugin {
 pub struct DrupalPluginReference {
     pub plugin_type: DrupalPluginType,
     pub plugin_id: String,
+}
+
+#[derive(Debug)]
+pub struct DrupalTranslationString {
+    pub string: String,
+    pub placeholders: Option<String>,
 }
 
 #[cfg(test)]
