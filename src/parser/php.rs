@@ -4,8 +4,7 @@ use std::collections::HashMap;
 use tree_sitter::{Node, Point};
 
 use super::tokens::{
-    ClassAttribute, DrupalHook, DrupalPlugin, DrupalPluginReference, DrupalPluginType, PhpClass,
-    PhpClassName, PhpMethod, Token, TokenData,
+    ClassAttribute, DrupalHook, DrupalPlugin, DrupalPluginReference, DrupalPluginType, DrupalTranslationString, PhpClass, PhpClassName, PhpMethod, Token, TokenData
 };
 use super::{get_closest_parent_by_kind, get_node_at_position, get_tree, position_to_point};
 
@@ -73,7 +72,7 @@ impl PhpParser {
         match node.kind() {
             "class_declaration" => self.parse_class_declaration(node),
             "method_declaration" => self.parse_method_declaration(node),
-            "scoped_call_expression" | "member_call_expression" => {
+            "scoped_call_expression" | "member_call_expression" | "function_call_expression" => {
                 self.parse_call_expression(node, point)
             }
             "function_definition" => self.parse_function_definition(node),
@@ -122,7 +121,11 @@ impl PhpParser {
 
     fn parse_call_expression(&self, node: Node, point: Option<Point>) -> Option<Token> {
         let string_content = node.descendant_for_point_range(point?, point?)?;
-        let name_node = node.child_by_field_name("name")?;
+        let name_node = match node.kind() {
+            "function_call_expression" => node.child_by_field_name("function"),
+            _ => node.child_by_field_name("name"),
+        }?;
+
         let name = self.get_node_text(&name_node);
 
         if node.kind() == "member_call_expression" {
@@ -225,6 +228,14 @@ impl PhpParser {
                 TokenData::DrupalPluginReference(DrupalPluginReference {
                     plugin_type: DrupalPluginType::QueueWorker,
                     plugin_id: self.get_node_text(&string_content).to_string(),
+                }),
+                node.range(),
+            ));
+        } else if name == "t" {
+            return Some(Token::new(
+                TokenData::DrupalTranslationString(DrupalTranslationString {
+                    string: self.get_node_text(&string_content).to_string(),
+                    placeholders: None,
                 }),
                 node.range(),
             ));
