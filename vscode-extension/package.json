@@ -1,0 +1,66 @@
+{
+  "name": "drupal-ls",
+  "description": "A language server for Drupal",
+  "author": "jdrupal-dev",
+  "license": "MIT",
+  "version": "1.0.8",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jdrupal-dev/drupal_ls"
+  },
+  "publisher": "jdrupal-dev",
+  "categories": [],
+  "keywords": [
+    "drupal",
+    "rust"
+  ],
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "activationEvents": [
+    "onLanguage:php",
+    "onLanguage:yaml"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "configuration": {
+      "type": "object",
+      "title": "Example configuration",
+      "properties": {
+        "languageServerExample.trace.server": {
+          "scope": "window",
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "description": "Traces the communication between VS Code and the language server."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "cargo build --release --manifest-path ../Cargo.toml && cp ../target/release/drupal_ls ./out/drupal_ls && tsc -b",
+    "watch": "cargo build --release --manifest-path ../Cargo.toml && cp ../target/release/drupal_ls ./out/drupal_ls && tsc -b -w",
+    "lint": "eslint"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.13.0",
+    "@stylistic/eslint-plugin": "^2.9.0",
+    "@types/mocha": "^10.0.6",
+    "@types/node": "^22",
+    "@types/vscode": "^1.100.0",
+    "@vscode/test-electron": "^2.5.2",
+    "eslint": "^9.13.0",
+    "mocha": "^10.3.0",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.39.0"
+  },
+  "dependencies": {
+    "glob": "^13.0.0",
+    "vscode-languageclient": "^9.0.1"
+  }
+}
