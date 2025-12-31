@@ -39,6 +39,13 @@ The missing language server for Drupal.
 
 ## Installation
 
+### VSCode extension available in marketplace
+You can download the VSCode extension by searching for `drupal-ls` in VSCode or going to [the marketplace](https://marketplace.visualstudio.com/items?itemName=jdrupal-dev.drupal-ls).
+
+Currently the extension is supported on the following platforms:
+- MacOS (darwin-x64, darwin-arm64)
+- Linux (linux-x64, linux-arm64)
+
 ### Neovim installation with [nvim-lspconfig](https://github.com/neovim/nvim-lspconfig) and lazy.nvim
 
 ```lua
@@ -70,6 +77,9 @@ The missing language server for Drupal.
 ```
 
 ## Roadmap
+### VSCode
+- [ ] Build VSCode extention in Ci.
+
 ### Completion
 - [ ] Autocomplete #theme functions.
 
