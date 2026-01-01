@@ -2,7 +2,10 @@
 The missing language server for Drupal.
 
 ## Features
-### Hover
+<details>
+
+<summary>Hover</summary>
+
 - Service references
 - Service class
 - Route references
@@ -10,7 +13,12 @@ The missing language server for Drupal.
 - Hook references
 - Permission references
 - Plugin references
-### Go to definition
+
+</details>
+<details>
+
+<summary>Go to definition</summary>
+
 - Service references
 - Service class
 - Route references
@@ -18,7 +26,12 @@ The missing language server for Drupal.
 - Hook references
 - Permission references
 - Plugin references
-### Completion
+
+</details>
+<details>
+
+<summary>Completion</summary>
+
 - Services
 - Routes
 - Snippets
@@ -34,47 +47,62 @@ The missing language server for Drupal.
     - DataType
     - FormElement
     - RenderElement
-### Code actions
+
+</details>
+<details>
+
+<summary>Code actions</summary>
+
 - Add translation placeholders to `t()` functions.
 
-## Installation
+</details>
 
-### VSCode extension available in marketplace
+## Installation
+<details>
+
+<summary>VSCode</summary>
+
 You can download the VSCode extension by searching for `drupal-ls` in VSCode or going to [the marketplace](https://marketplace.visualstudio.com/items?itemName=jdrupal-dev.drupal-ls).
 
 Currently the extension is supported on the following platforms:
 - MacOS (darwin-x64, darwin-arm64)
 - Linux (linux-x64, linux-arm64)
 
-### Neovim installation with [nvim-lspconfig](https://github.com/neovim/nvim-lspconfig) and lazy.nvim
+</details>
+
+<details>
+
+<summary>Neovim (lazy.nvim)</summary>
+
+You can download a pre-built binary from the Releases page, or you can compile it from source.
 
 ```lua
 {
   "jdrupal-dev/drupal_ls",
   event = { "BufReadPre", "BufNewFile" },
-  dependencies = "neovim/nvim-lspconfig",
   -- Requires cargo to be installed locally.
+  -- Only needed when compiling from source.
   build = "cargo build --release",
   config = function()
-    local lspconfig = require("lspconfig")
-
-    require("lspconfig.configs").drupal_ls = {
-      default_config = {
-        cmd = {
-          vim.fn.stdpath("data") .. "/lazy/drupal_ls/target/release/drupal_ls",
-          "--file",
-          "/tmp/drupal_ls-log.txt",
-        },
-        filetypes = { "php", "yaml" },
-        root_dir = lspconfig.util.root_pattern("composer.json"),
-        settings = {},
+    vim.lsp.config.drupal_ls = {
+      cmd = {
+        -- Replace this path, if you download a prebuilt binary.
+        vim.fn.stdpath("data") .. "/lazy/drupal_ls/target/release/drupal_ls",
+        "--file",
+        "/tmp/drupal_ls-log.txt",
       },
-    }
+      filetypes = { "php", "yaml" },
+      root_markers = {
+        'composer.json',
+      },
+    };
 
-    lspconfig["drupal_ls"].setup({})
+    vim.lsp.enable("drupal_ls");
   end,
 }
 ```
+
+</details>
 
 ## Roadmap
 ### VSCode
