@@ -1,0 +1,65 @@
+{
+  "name": "drupal-ls",
+  "description": "A language server for Drupal",
+  "author": "jdrupal-dev",
+  "license": "MIT",
+  "version": "1.0.10",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jdrupal-dev/drupal_ls"
+  },
+  "publisher": "jdrupal-dev",
+  "categories": [],
+  "keywords": [
+    "drupal",
+    "rust"
+  ],
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "activationEvents": [
+    "onLanguage:php",
+    "onLanguage:yaml"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {},
+  "scripts": {
+    "publish": "npm-run-all publish:*",
+    "publish:linux-arm64": "npm run compile:linux-arm64 && vsce publish --target linux-arm64",
+    "publish:linux-x64": "npm run compile:linux-x64 && vsce publish --target linux-x64",
+    "publish:darwin-arm64": "npm run compile:darwin-arm64 && vsce publish --target darwin-arm64",
+    "publish:darwin-x64": "npm run compile:darwin-x64 && vsce publish --target darwin-x64",
+    "package": "npm-run-all package:*",
+    "package:linux-x64": "npm run compile:linux-x64 && tsc -b && vsce package --target linux-x64",
+    "package:linux-arm64": "npm run compile:linux-arm64 && tsc -b && vsce package --target linux-arm64",
+    "package:darwin-x64": "npm run compile:darwin-x64 && tsc -b && vsce package --target darwin-x64",
+    "package:darwin-arm64": "npm run compile:darwin-arm64 && tsc -b && vsce package --target darwin-arm64",
+    "compile:linux-x64": "cross build --target x86_64-unknown-linux-gnu --release --manifest-path ../Cargo.toml && cp ../target/x86_64-unknown-linux-gnu/release/drupal_ls ./out/drupal_ls && node esbuild --production",
+    "compile:linux-arm64": "cross build --target aarch64-unknown-linux-gnu --release --manifest-path ../Cargo.toml && cp ../target/aarch64-unknown-linux-gnu/release/drupal_ls ./out/drupal_ls && node esbuild --production",
+    "compile:darwin-x64": "cross build --target x86_64-apple-darwin --release --manifest-path ../Cargo.toml && cp ../target/x86_64-apple-darwin/release/drupal_ls ./out/drupal_ls && node esbuild --production",
+    "compile:darwin-arm64": "cross build --target aarch64-apple-darwin --release --manifest-path ../Cargo.toml && cp ../target/aarch64-apple-darwin/release/drupal_ls ./out/drupal_ls && node esbuild --production",
+    "compile": "cargo build --release --manifest-path ../Cargo.toml && cp ../target/release/drupal_ls ./dist/drupal_ls && npm run check-types && node esbuild.js",
+    "check-types": "tsc --noEmit",
+    "watch": "cargo build --release --manifest-path ../Cargo.toml && cp ../target/release/drupal_ls ./out/drupal_ls && npm-run-all -p watch:*",
+    "watch:esbuild": "node esbuild.js --watch",
+    "watch:tsc": "tsc --noEmit --watch --project tsconfig.json"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.13.0",
+    "@stylistic/eslint-plugin": "^2.9.0",
+    "@types/mocha": "^10.0.6",
+    "@types/node": "^22",
+    "@types/vscode": "^1.100.0",
+    "@vscode/test-electron": "^2.5.2",
+    "esbuild": "^0.27.2",
+    "eslint": "^9.13.0",
+    "mocha": "^10.3.0",
+    "npm-run-all": "^4.1.5",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.39.0"
+  },
+  "dependencies": {
+    "glob": "^13.0.0",
+    "vscode-languageclient": "^9.0.1"
+  }
+}
