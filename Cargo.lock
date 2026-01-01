@@ -238,7 +238,7 @@ dependencies = [
 
 [[package]]
 name = "drupal_ls"
-version = "0.1.0"
+version = "1.0.10"
 dependencies = [
  "anyhow",
  "clap",
