@@ -139,7 +139,7 @@ chmod +x /usr/local/bin/drupal_ls
 
 ## Roadmap
 ### VSCode
-- [ ] Build VSCode extension in CLI automatically.
+- [ ] Build VSCode extension in CI.
 
 ### Completion
 - [ ] Autocomplete #theme functions in render arrays.
