@@ -1,8 +1,26 @@
 # Contributing
 
-## Running the project
-Use `cargo build` to compile the project, to run the language server simply execute the compiled binary located in `target/debug/drupal_ls`.
+## Prerequisites
 
-## Testing changes
-Before pushing any changes, please run `cargo test` so ensure that no regressions are introduced.
+To build and run this project locally, you must have **Rust** and **Cargo** installed.
+Ensure `cargo` is available in your global system `PATH`.
+
+## Running the Project
+
+1. **Compile the project:**
+   ```bash
+   cargo build
+   ```
+
+2. **Run the Language Server:**
+   The compiled binary will be located at:
+   `target/debug/drupal_ls`
+
+## Testing Changes
+
+Before pushing any changes, please run the test suite to ensure no regressions are introduced:
+
+```bash
+cargo test
+```
 
